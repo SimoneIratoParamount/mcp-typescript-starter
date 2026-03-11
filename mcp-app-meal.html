@@ -152,6 +152,57 @@
     .btn-secondary:hover { background: #e8eaed; }
     .btn:disabled { opacity: 0.5; cursor: default; }
 
+    /* ── Carousel ─────────────────────────────────────── */
+    .carousel-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.92);
+      color: #3c4043;
+      font-size: 22px;
+      font-weight: 300;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    .carousel-arrow:hover {
+      background: #fff;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.24);
+    }
+    .carousel-arrow-left  { left: -14px; }
+    .carousel-arrow-right { right: -14px; }
+
+    .carousel-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .carousel-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: none;
+      background: #dadce0;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .carousel-dot.active {
+      background: #1a73e8;
+      transform: scale(1.25);
+    }
+    .carousel-dot:hover:not(.active) { background: #9aa0a6; }
+
     /* ── Status screen ───────────────────────────────── */
     .status {
       display: flex;

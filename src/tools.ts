@@ -709,16 +709,20 @@ function registerMealRecommendationTool(server: McpServer): void {
           ),
       },
       outputSchema: {
-        name: z.string(),
-        cuisine: z.string(),
-        address: z.string(),
-        rating: z.number(),
-        distanceKm: z.number(),
-        openNow: z.boolean(),
-        placeId: z.string().optional(),
-        openingHours: z.string().optional(),
-        weatherConditions: z.string().optional(),
-        travelAdvisory: z.string().optional(),
+        recommendations: z.array(
+          z.object({
+            name: z.string(),
+            cuisine: z.string(),
+            address: z.string(),
+            rating: z.number(),
+            distanceKm: z.number(),
+            openNow: z.boolean(),
+            placeId: z.string().optional(),
+            openingHours: z.string().optional(),
+            weatherConditions: z.string().optional(),
+            travelAdvisory: z.string().optional(),
+          })
+        ),
         weather: z
           .object({
             location: z.string(),
@@ -830,7 +834,9 @@ function registerMealRecommendationTool(server: McpServer): void {
           : a.distanceKm - b.distanceKm || b.rating - a.rating
       );
 
-      // --- Path with hour filter ---
+      // Validate hour format if provided
+      let hhmm: string | null = null;
+      let dayOfWeek = new Date().getDay();
       if (hour) {
         const match = hour.match(/^(\d{1,2}):(\d{2})$/);
         if (!match) {
@@ -844,114 +850,86 @@ function registerMealRecommendationTool(server: McpServer): void {
             isError: true,
           };
         }
-        const hhmm = match[1].padStart(2, '0') + match[2];
-        const dayOfWeek = new Date().getDay();
+        hhmm = match[1].padStart(2, '0') + match[2];
+      }
 
-        const top = sorted.slice(0, 5);
-        const detailResults = await Promise.all(
-          top.map(async (r) => {
-            if (!r.placeId) return { restaurant: r, hours: null };
-            const hours = await getPlaceOpeningHours(r.placeId, apiKey);
-            return { restaurant: r, hours };
-          })
-        );
+      // Fetch opening hours for the top candidates so we can filter to open places.
+      // Check more than 5 to increase our chances of finding 5 that are open.
+      const candidates = sorted.slice(0, 15);
+      const detailResults = await Promise.all(
+        candidates.map(async (r) => {
+          if (!r.placeId) return { restaurant: r, hours: null };
+          const hours = await getPlaceOpeningHours(r.placeId, apiKey);
+          return { restaurant: r, hours };
+        })
+      );
 
-        const openAtHour = detailResults.filter(
-          (d) => d.hours && isOpenAtHour(d.hours.periods, dayOfWeek, hhmm)
-        );
+      // Filter to places confirmed open for the timeframe
+      const openPlaces = detailResults.filter((d) => {
+        if (!d.hours) return false;
+        if (hhmm) return isOpenAtHour(d.hours.periods, dayOfWeek, hhmm);
+        // No hour specified → use real-time open status from initial search
+        return d.restaurant.openNow;
+      });
 
-        if (openAtHour.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `No ${cuisine} restaurant found open at ${hour} near ${location}.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const pick = openAtHour[0];
-        const best = pick.restaurant;
-        const schedule = pick.hours!.weekdayText.join('\n');
-        const advisory = weather ? buildTravelAdvisory(weather.conditions, best.distanceKm) : '';
-
-        const recommendation = {
-          name: best.name,
-          cuisine: best.cuisine,
-          address: best.address,
-          rating: best.rating,
-          distanceKm: best.distanceKm,
-          openNow: best.openNow,
-          placeId: best.placeId || undefined,
-          openingHours: schedule,
-          weatherConditions: weather?.conditions,
-          travelAdvisory: advisory || undefined,
-          weather: weather
-            ? {
-                location: weather.location,
-                temperature: weather.temperature,
-                conditions: weather.conditions,
-                humidity: weather.humidity,
-                windSpeed: weather.windSpeed,
-              }
-            : undefined,
-        };
-
-        const lines = [
-          `**Best ${cuisine} pick open at ${hour}:** ${best.name}`,
-          `Address: ${best.address}`,
-          `Rating: ${best.rating}/5 · ${best.distanceKm} km away`,
-          `Open now: ${best.openNow ? 'Yes' : 'No'}`,
-          `Opening hours:\n${schedule}`,
-        ];
-        if (weather) lines.push(`\nWeather: ${weather.temperature}°C, ${weather.conditions}`);
-        if (advisory) lines.push(advisory);
-
+      if (openPlaces.length === 0) {
+        const timeDesc = hour ? `open at ${hour}` : 'currently open';
         return {
-          content: [{ type: 'text', text: lines.join('\n') }],
-          structuredContent: recommendation,
+          content: [
+            {
+              type: 'text',
+              text: `No ${cuisine} restaurant ${timeDesc} found near ${location ?? 'your location'}. Try a different time or cuisine.`,
+            },
+          ],
+          isError: true,
         };
       }
 
-      // --- Default path: no hour filter ---
-      const best = sorted[0];
-      const advisory = weather ? buildTravelAdvisory(weather.conditions, best.distanceKm) : '';
+      // Take the top 5 open places
+      const top5 = openPlaces.slice(0, 5);
 
-      const recommendation = {
-        name: best.name,
-        cuisine: best.cuisine,
-        address: best.address,
-        rating: best.rating,
-        distanceKm: best.distanceKm,
-        openNow: best.openNow,
-        placeId: best.placeId || undefined,
-        weatherConditions: weather?.conditions,
-        travelAdvisory: advisory || undefined,
-        weather: weather
-          ? {
-              location: weather.location,
-              temperature: weather.temperature,
-              conditions: weather.conditions,
-              humidity: weather.humidity,
-              windSpeed: weather.windSpeed,
-            }
-          : undefined,
-      };
+      const recommendations = top5.map((d) => {
+        const r = d.restaurant;
+        const schedule = d.hours?.weekdayText.join('\n');
+        const advisory = weather ? buildTravelAdvisory(weather.conditions, r.distanceKm) : '';
+        return {
+          name: r.name,
+          cuisine: r.cuisine,
+          address: r.address,
+          rating: r.rating,
+          distanceKm: r.distanceKm,
+          openNow: r.openNow,
+          placeId: r.placeId || undefined,
+          openingHours: schedule,
+          weatherConditions: weather?.conditions,
+          travelAdvisory: advisory || undefined,
+        };
+      });
 
+      const weatherSnapshot = weather
+        ? {
+            location: weather.location,
+            temperature: weather.temperature,
+            conditions: weather.conditions,
+            humidity: weather.humidity,
+            windSpeed: weather.windSpeed,
+          }
+        : undefined;
+
+      const timeDesc = hour ? ` open at ${hour}` : '';
       const lines = [
-        `**Best ${cuisine} pick near you:** ${best.name}`,
-        `Address: ${best.address}`,
-        `Rating: ${best.rating}/5 · ${best.distanceKm} km away`,
-        `Open now: ${best.openNow ? 'Yes' : 'No'}`,
+        `**Top ${recommendations.length} ${cuisine} picks${timeDesc} near ${location ?? 'you'}:**`,
+        '',
+        ...recommendations.map(
+          (r, i) =>
+            `${i + 1}. **${r.name}** — ${r.rating}/5 · ${r.distanceKm} km · ${r.address}`
+        ),
       ];
-      if (weather) lines.push(`\nWeather: ${weather.temperature}°C, ${weather.conditions}`);
-      if (advisory) lines.push(advisory);
+      if (weather) lines.push('', `Weather: ${weather.temperature}°C, ${weather.conditions}`);
 
       return {
         content: [{ type: 'text', text: lines.join('\n') }],
-        structuredContent: recommendation,
+        structuredContent: { recommendations, weather: weatherSnapshot },
       };
     },
   );

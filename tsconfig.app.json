@@ -13,5 +13,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src/mcp-app.tsx", "mcp-app.html"]
+  "include": ["src/mcp-app.tsx", "src/mcp-app-meal.tsx", "mcp-app.html", "mcp-app-meal.html"]
 }

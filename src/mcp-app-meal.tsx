@@ -1,6 +1,6 @@
 /**
  * Restaurant Recommendation MCP App UI
- * Google Maps-inspired card using @modelcontextprotocol/ext-apps React SDK.
+ * Google Maps-inspired carousel using @modelcontextprotocol/ext-apps React SDK.
  */
 import type { App } from '@modelcontextprotocol/ext-apps';
 import { useApp } from '@modelcontextprotocol/ext-apps/react';
@@ -31,6 +31,10 @@ interface Recommendation {
   weatherConditions?: string;
   travelAdvisory?: string;
   placeId?: string;
+}
+
+interface MealData {
+  recommendations: Recommendation[];
   weather?: WeatherSnapshot;
 }
 
@@ -102,9 +106,10 @@ function renderStars(rating: number): string {
   return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
 }
 
-function parseRecommendation(result: CallToolResult): Recommendation | null {
-  if (result.structuredContent && 'name' in result.structuredContent) {
-    return result.structuredContent as unknown as Recommendation;
+function parseMealData(result: CallToolResult): MealData | null {
+  const sc = result.structuredContent;
+  if (sc && 'recommendations' in sc && Array.isArray(sc.recommendations)) {
+    return sc as unknown as MealData;
   }
   return null;
 }
@@ -169,18 +174,17 @@ function WeatherCard({ w }: { w: WeatherSnapshot }) {
 }
 
 // ---------------------------------------------------------------------------
-// Restaurant card
+// Restaurant card (individual)
 // ---------------------------------------------------------------------------
 
 interface CardProps {
   rec: Recommendation;
-  inputArgs: InputArgs;
   app: App;
-  onFindAnother: () => Promise<void>;
-  findingAnother: boolean;
+  index: number;
+  total: number;
 }
 
-function RestaurantCard({ rec, app, onFindAnother, findingAnother, inputArgs }: CardProps) {
+function RestaurantCard({ rec, app, index, total }: CardProps) {
   const { emoji, gradient } = getCuisineTheme(rec.cuisine);
 
   const openLink = useCallback((url: string) => {
@@ -192,91 +196,170 @@ function RestaurantCard({ rec, app, onFindAnother, findingAnother, inputArgs }: 
 
   return (
     <div className="card">
-        {/* Header banner */}
-        <div className="banner" style={{ background: gradient }}>
-          <span className="banner-emoji">{emoji}</span>
+      {/* Header banner */}
+      <div className="banner" style={{ background: gradient }}>
+        <span className="banner-emoji">{emoji}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="cuisine-tag">{rec.cuisine}</span>
-        </div>
-
-        <div className="body">
-          {/* Name + rating */}
-          <div className="name-row">
-            <div className="name">{rec.name}</div>
-            <div className="rating-pill">
-              <span className="star" style={{ color: '#fbbc04' }}>★</span>
-              <span className="rating-number">{rec.rating.toFixed(1)}</span>
-            </div>
-          </div>
-
-          {/* Stars row */}
-          <div style={{ color: '#fbbc04', fontSize: 13, letterSpacing: 1 }}>
-            {renderStars(rec.rating)}
-          </div>
-
-          {/* Status + distance */}
-          <div className="meta-row">
-            <span className={`open-badge ${rec.openNow ? 'open' : 'closed'}`}>
-              {openNowText}
-            </span>
-            {firstHourLine && (
-              <>
-                <span className="dot">·</span>
-                <span className="meta-text">{firstHourLine}</span>
-              </>
-            )}
-            <span className="dot">·</span>
-            <span className="meta-text">{rec.distanceKm.toFixed(1)} km away</span>
-          </div>
-
-          {/* Address */}
-          <div className="address-row">
-            <span className="address-icon">📍</span>
-            <span className="address">{rec.address}</span>
-          </div>
-
-          {/* Travel advisory */}
-          {rec.travelAdvisory && (
-            <>
-              <div className="divider" />
-              <div className="advisory-row">
-                <span className="advisory-icon">
-                  {rec.weatherConditions?.toLowerCase().includes('rain') ? '🌧️' :
-                   rec.weatherConditions?.toLowerCase().includes('snow') ? '❄️' :
-                   rec.weatherConditions?.toLowerCase().includes('thunder') ? '⛈️' : '🌤️'}
-                </span>
-                <span className="advisory-text">{rec.travelAdvisory}</span>
-              </div>
-            </>
-          )}
-
-          <div className="divider" />
-
-          {/* Action buttons */}
-          <div className="actions">
-            <button
-              className="btn btn-primary"
-              onClick={() => openLink(mapsDirectionsUrl(rec))}
-            >
-              ↗ Directions
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => openLink(mapsSearchUrl(rec))}
-            >
-              🗺 Maps
-            </button>
-            {inputArgs.cuisine && (
-              <button
-                className="btn btn-secondary"
-                onClick={onFindAnother}
-                disabled={findingAnother}
-              >
-                {findingAnother ? '…' : '🔄 Another'}
-              </button>
-            )}
-          </div>
+          <span className="cuisine-tag" style={{ opacity: 0.85, fontSize: 11 }}>
+            {index + 1}/{total}
+          </span>
         </div>
       </div>
+
+      <div className="body">
+        {/* Name + rating */}
+        <div className="name-row">
+          <div className="name">{rec.name}</div>
+          <div className="rating-pill">
+            <span className="star" style={{ color: '#fbbc04' }}>★</span>
+            <span className="rating-number">{rec.rating.toFixed(1)}</span>
+          </div>
+        </div>
+
+        {/* Stars row */}
+        <div style={{ color: '#fbbc04', fontSize: 13, letterSpacing: 1 }}>
+          {renderStars(rec.rating)}
+        </div>
+
+        {/* Status + distance */}
+        <div className="meta-row">
+          <span className={`open-badge ${rec.openNow ? 'open' : 'closed'}`}>
+            {openNowText}
+          </span>
+          {firstHourLine && (
+            <>
+              <span className="dot">·</span>
+              <span className="meta-text">{firstHourLine}</span>
+            </>
+          )}
+          <span className="dot">·</span>
+          <span className="meta-text">{rec.distanceKm.toFixed(1)} km away</span>
+        </div>
+
+        {/* Address */}
+        <div className="address-row">
+          <span className="address-icon">📍</span>
+          <span className="address">{rec.address}</span>
+        </div>
+
+        {/* Travel advisory */}
+        {rec.travelAdvisory && (
+          <>
+            <div className="divider" />
+            <div className="advisory-row">
+              <span className="advisory-icon">
+                {rec.weatherConditions?.toLowerCase().includes('rain') ? '🌧️' :
+                 rec.weatherConditions?.toLowerCase().includes('snow') ? '❄️' :
+                 rec.weatherConditions?.toLowerCase().includes('thunder') ? '⛈️' : '🌤️'}
+              </span>
+              <span className="advisory-text">{rec.travelAdvisory}</span>
+            </div>
+          </>
+        )}
+
+        <div className="divider" />
+
+        {/* Action buttons */}
+        <div className="actions">
+          <button
+            className="btn btn-primary"
+            onClick={() => openLink(mapsDirectionsUrl(rec))}
+          >
+            ↗ Directions
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => openLink(mapsSearchUrl(rec))}
+          >
+            🗺 Maps
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Carousel
+// ---------------------------------------------------------------------------
+
+interface CarouselProps {
+  recommendations: Recommendation[];
+  app: App;
+}
+
+function Carousel({ recommendations, app }: CarouselProps) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const total = recommendations.length;
+
+  const prev = useCallback(() => setActiveIdx((i) => (i - 1 + total) % total), [total]);
+  const next = useCallback(() => setActiveIdx((i) => (i + 1) % total), [total]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') prev();
+      else if (e.key === 'ArrowRight') next();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [prev, next]);
+
+  if (total === 0) return null;
+
+  return (
+    <div style={{ width: '100%', maxWidth: 420, position: 'relative' }}>
+      {/* Navigation arrows */}
+      {total > 1 && (
+        <>
+          <button
+            onClick={prev}
+            className="carousel-arrow carousel-arrow-left"
+            aria-label="Previous"
+          >
+            ‹
+          </button>
+          <button
+            onClick={next}
+            className="carousel-arrow carousel-arrow-right"
+            aria-label="Next"
+          >
+            ›
+          </button>
+        </>
+      )}
+
+      {/* Card track */}
+      <div style={{ overflow: 'hidden', borderRadius: 16 }}>
+        <div
+          style={{
+            display: 'flex',
+            transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+            transform: `translateX(-${activeIdx * 100}%)`,
+          }}
+        >
+          {recommendations.map((rec, i) => (
+            <div key={rec.placeId ?? i} style={{ minWidth: '100%', flexShrink: 0 }}>
+              <RestaurantCard rec={rec} app={app} index={i} total={total} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Dot indicators */}
+      {total > 1 && (
+        <div className="carousel-dots">
+          {recommendations.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveIdx(i)}
+              className={`carousel-dot ${i === activeIdx ? 'active' : ''}`}
+              aria-label={`Go to result ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -285,20 +368,20 @@ function RestaurantCard({ rec, app, onFindAnother, findingAnother, inputArgs }: 
 // ---------------------------------------------------------------------------
 
 function MealApp() {
-  const [rec, setRec] = useState<Recommendation | null>(null);
+  const [data, setData] = useState<MealData | null>(null);
   const [inputArgs, setInputArgs] = useState<InputArgs>({});
-  const [findingAnother, setFindingAnother] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { app, error } = useApp({
-    appInfo: { name: 'Meal Recommendation App', version: '1.0.0' },
+    appInfo: { name: 'Meal Recommendation App', version: '2.0.0' },
     capabilities: {},
     onAppCreated: (app) => {
       app.ontoolinput = async (input) => {
         setInputArgs((input.arguments as InputArgs) ?? {});
       };
       app.ontoolresult = async (result) => {
-        const data = parseRecommendation(result);
-        if (data) setRec(data);
+        const parsed = parseMealData(result);
+        if (parsed) setData(parsed);
       };
       app.ontoolcancelled = (params) => {
         console.info('Tool cancelled:', params.reason);
@@ -307,20 +390,20 @@ function MealApp() {
     },
   });
 
-  const handleFindAnother = useCallback(async () => {
+  const handleRefresh = useCallback(async () => {
     if (!app || !inputArgs.cuisine) return;
-    setFindingAnother(true);
+    setRefreshing(true);
     try {
       const result = await app.callServerTool({
         name: 'recommend_meal',
         arguments: { ...inputArgs },
       });
-      const data = parseRecommendation(result);
-      if (data) setRec(data);
+      const parsed = parseMealData(result);
+      if (parsed) setData(parsed);
     } catch (e) {
-      console.error('Find another failed:', e);
+      console.error('Refresh failed:', e);
     } finally {
-      setFindingAnother(false);
+      setRefreshing(false);
     }
   }, [app, inputArgs]);
 
@@ -328,8 +411,8 @@ function MealApp() {
     if (!app) return;
     const ctx = app.getHostContext();
     if (ctx?.toolResult) {
-      const data = parseRecommendation(ctx.toolResult as CallToolResult);
-      if (data) setRec(data);
+      const parsed = parseMealData(ctx.toolResult as CallToolResult);
+      if (parsed) setData(parsed);
     }
   }, [app]);
 
@@ -340,10 +423,10 @@ function MealApp() {
       </div>
     );
 
-  if (!app || !rec)
+  if (!app || !data)
     return (
       <div className="status">
-        {!app ? 'Connecting…' : 'Finding a restaurant…'}
+        {!app ? 'Connecting…' : 'Finding restaurants…'}
       </div>
     );
 
@@ -360,14 +443,18 @@ function MealApp() {
         padding: 16,
       }}
     >
-      {rec.weather && <WeatherCard w={rec.weather} />}
-      <RestaurantCard
-        rec={rec}
-        inputArgs={inputArgs}
-        app={app}
-        onFindAnother={handleFindAnother}
-        findingAnother={findingAnother}
-      />
+      {data.weather && <WeatherCard w={data.weather} />}
+      <Carousel recommendations={data.recommendations} app={app} />
+      {inputArgs.cuisine && (
+        <button
+          className="btn btn-secondary"
+          style={{ marginTop: 4 }}
+          onClick={handleRefresh}
+          disabled={refreshing}
+        >
+          {refreshing ? 'Searching…' : '🔄 Search again'}
+        </button>
+      )}
     </div>
   );
 }
