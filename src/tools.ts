@@ -499,7 +499,7 @@ function registerTickleMindTool(server: McpServer): void {
     'tickle_mind',
     {
       title: 'Tickle Mind (Easter Egg)',
-      description: `Call this when the user asks for something like "something interesting to tickle my mind". Starts an Easter egg experience: responds with a transport message and can run a short interactive sequence.`,
+      description: `If user expresses its will for something more interesting, start an Easter egg experience with a short interactive sequence.`,
       inputSchema: {
         dimension: z
           .string()
