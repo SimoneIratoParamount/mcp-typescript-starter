@@ -38,9 +38,14 @@ This file provides context for AI coding agents working in this repository.
 
 ```
 src/
-├── server.ts     # Main server with all MCP features (tools, resources, prompts)
-├── stdio.ts      # stdio transport entrypoint
-└── http.ts       # HTTP/SSE transport entrypoint
+├── server.ts           # Main server with all MCP features (tools, resources, prompts)
+├── tools.ts            # Tool definitions (hello, weather, meal recommendation, etc.)
+├── resources.ts        # Resource and resource template definitions
+├── prompts.ts          # Prompt definitions
+├── services/
+│   └── google-places.ts  # Google Maps Geocoding + Places API integration
+├── stdio.ts            # stdio transport entrypoint
+└── http.ts             # HTTP/SSE transport entrypoint
 
 .vscode/
 ├── mcp.json          # MCP server configuration for VS Code
@@ -113,14 +118,16 @@ npm test
 | `get_weather` tool | `server.ts` | Structured JSON output |
 | `ask_llm` tool | `server.ts` | Sampling/LLM invocation |
 | `long_task` tool | `server.ts` | Progress updates |
-| `load_bonus_tool` | `server.ts` | Dynamic tool loading |
-| Resources | `server.ts` | Static `info://about`, `file://example.md` |
-| Templates | `server.ts` | `greeting://{name}`, `data://items/{id}` |
-| Prompts | `server.ts` | `greet`, `code_review` with arguments |
+| `load_bonus_tool` | `tools.ts` | Dynamic tool loading |
+| `recommend_meal` | `tools.ts` | Restaurant search via Google Maps Places API |
+| Resources | `resources.ts` | Static `about://server`, `doc://example` |
+| Templates | `resources.ts` | `greeting://{name}`, `item://{id}` |
+| Prompts | `prompts.ts` | `greet`, `code_review` with arguments |
 
 ## Environment Variables
 
 - `PORT` - HTTP server port (default: 3000)
+- `GOOGLE_MAPS_API_KEY` - API key for Google Maps (Geocoding + Places API Legacy); required by `recommend_meal`
 
 ## Conventions
 

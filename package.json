@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/stdio.js",
   "scripts": {
-    "build": "tsc && cp src/data/* dist/data/",
+    "build": "tsc",
     "dev": "tsx watch src/stdio.ts",
     "dev:http": "tsx watch src/http.ts",
     "start:stdio": "node dist/stdio.js",

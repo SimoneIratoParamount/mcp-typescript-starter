@@ -9,8 +9,6 @@ export interface RestaurantResult {
   address: string;
   rating: number;
   distanceKm: number;
-  plateQuantity: number;
-  openingHours: string;
 }
 
 interface GeocodeResult {
@@ -142,8 +140,6 @@ export async function searchRestaurants(
         address: p.formatted_address ?? '',
         rating: typeof p.rating === 'number' ? p.rating : 0,
         distanceKm: Math.round(distanceKm * 10) / 10,
-        plateQuantity: 3,
-        openingHours: 'See Google Maps',
       };
     });
 }

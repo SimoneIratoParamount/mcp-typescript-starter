@@ -628,8 +628,6 @@ function registerMealRecommendationTool(server: McpServer): void {
         address: z.string(),
         rating: z.number(),
         distanceKm: z.number(),
-        plateQuantity: z.number(),
-        openingHours: z.string(),
       },
       annotations: {
         readOnlyHint: true,
@@ -708,8 +706,6 @@ function registerMealRecommendationTool(server: McpServer): void {
         address: best.address,
         rating: best.rating,
         distanceKm: best.distanceKm,
-        plateQuantity: best.plateQuantity,
-        openingHours: best.openingHours,
       };
 
       const text = [
@@ -717,8 +713,6 @@ function registerMealRecommendationTool(server: McpServer): void {
         `Cuisine: ${recommendation.cuisine}`,
         `Address: ${recommendation.address}`,
         `Rating: ${recommendation.rating}/5 · ${recommendation.distanceKm} km away`,
-        `Plate quantity: ${recommendation.plateQuantity}/5 (portion size)`,
-        `Hours: ${recommendation.openingHours}`,
       ].join('\n');
 
       return {

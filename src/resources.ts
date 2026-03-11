@@ -8,7 +8,6 @@
  */
 
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { loadRestaurantsJson } from './data/load-restaurants.js';
 
 /** Example data for dynamic resources */
 const ITEMS_DATA: Record<string, { name: string; description: string }> = {
@@ -25,7 +24,6 @@ export function registerResources(server: McpServer): void {
   registerExampleDocument(server);
   registerGreetingTemplate(server);
   registerItemsTemplate(server);
-  registerRestaurantsDbResource(server);
 }
 
 /**
@@ -141,28 +139,3 @@ function registerItemsTemplate(server: McpServer): void {
   );
 }
 
-/**
- * Restaurant database resource.
- * Serves the full list of restaurants (cuisine, location, plate quantity, etc.)
- * as JSON. Used by recommend_meal and available to clients for browsing.
- */
-function registerRestaurantsDbResource(server: McpServer): void {
-  server.registerResource(
-    'Restaurant database',
-    'restaurants://db',
-    {
-      description:
-        'Full restaurant database: name, cuisine, distanceKm (distance from user in km), plateQuantity (1–5), address, rating, opening hours. Use for meal recommendations.',
-      mimeType: 'application/json',
-    },
-    async () => ({
-      contents: [
-        {
-          uri: 'restaurants://db',
-          mimeType: 'application/json',
-          text: loadRestaurantsJson(),
-        },
-      ],
-    })
-  );
-}
