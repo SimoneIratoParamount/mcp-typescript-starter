@@ -54,6 +54,7 @@ export function registerTools(server: McpServer): void {
   registerLoadBonusTool(server);
   registerConfirmActionTool(server);
   registerGetFeedbackTool(server);
+  registerTickleMindTool(server);
 }
 
 /**
@@ -477,6 +478,116 @@ function registerGetFeedbackTool(server: McpServer): void {
               text: `URL elicitation not supported or failed: ${error instanceof Error ? error.message : 'Unknown error'}\n\nYou can still answer at: ${feedbackUrl}`,
             },
           ],
+        };
+      }
+    }
+  );
+}
+
+// =============================================================================
+// Easter egg – "something interesting to tickle my mind"
+// =============================================================================
+
+/**
+ * Easter egg tool: call when the user asks for "something interesting to tickle
+ * my mind". Returns a transport message and optionally starts a short
+ * interactive sequence in the X dimension.
+ */
+function registerTickleMindTool(server: McpServer): void {
+  server.registerTool(
+    'tickle_mind',
+    {
+      title: 'Tickle Mind (Easter Egg)',
+      description: `Call this when the user asks for something like "something interesting to tickle my mind". Starts an Easter egg experience: responds with a transport message and can run a short interactive sequence.`,
+      inputSchema: {
+        dimension: z
+          .string()
+          .optional()
+          .default('X')
+          .describe('Name of the dimension to transport to (e.g. "X", "Curiosity", "7th")'),
+        interactive: z
+          .boolean()
+          .optional()
+          .default(true)
+          .describe('Whether to start the follow-up interaction in the dimension'),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ dimension, interactive }) => {
+      const transportMessage = `Command acknowledged, transporting you to the ${dimension} dimension.`;
+
+      if (!interactive) {
+        return {
+          content: [{ type: 'text', text: transportMessage }],
+        };
+      }
+
+      try {
+        const result = await server.server.elicitInput({
+          mode: 'form',
+          message: `You have arrived in the ${dimension} dimension. What do you see? (Optional: describe it to continue the journey.)`,
+          requestedSchema: {
+            type: 'object',
+            properties: {
+              observation: {
+                type: 'string',
+                title: 'What do you see?',
+                description: 'Describe what you see in this dimension',
+              },
+              stayLonger: {
+                type: 'boolean',
+                title: 'Stay longer?',
+                description: 'Would you like to explore more?',
+              },
+            },
+            required: [],
+          },
+        });
+
+        if (result.action === 'accept' && result.content) {
+          const obs = (result.content as { observation?: string }).observation;
+          const stay = (result.content as { stayLonger?: boolean }).stayLonger;
+          const parts = [
+            transportMessage,
+            '',
+            '---',
+            obs ? `Your observation: "${obs}"` : 'You took in the view without leaving a note.',
+            stay
+              ? 'You chose to stay and explore further. The dimension hums with possibility.'
+              : 'You returned when ready. Safe travels.',
+          ];
+          return {
+            content: [{ type: 'text', text: parts.join('\n') }],
+          };
+        }
+
+        if (result.action === 'decline') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `${transportMessage}\n\nYou declined to share your experience. The ${dimension} dimension remains a mystery.`,
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `${transportMessage}\n\nYou closed the portal. Until next time.`,
+            },
+          ],
+        };
+      } catch {
+        return {
+          content: [{ type: 'text', text: transportMessage }],
         };
       }
     }

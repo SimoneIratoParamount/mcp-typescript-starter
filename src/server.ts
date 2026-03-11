@@ -31,6 +31,7 @@ A demonstration MCP server showcasing TypeScript SDK capabilities.
 4. **Dynamic tools** → Call \`load_bonus_tool\`, then re-list tools to see \`bonus_calculator\` appear
 5. **LLM sampling** → Call \`ask_llm\` to have the server request a completion from the client
 6. **Elicitation** → Call \`confirm_action\` (form-based) or \`get_feedback\` (URL-based) to request user input
+7. **Easter egg** → When the user asks for "something interesting to tickle my mind", call \`tickle_mind\` to start the X-dimension experience
 
 ## Multi-Tool Flows
 
