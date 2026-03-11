@@ -1,14 +1,17 @@
 /**
  * Google Maps integration for restaurant search.
- * Uses Geocoding API to resolve location and Places API (Legacy) for text search.
+ * Uses Geocoding API to resolve location, Places API (Legacy) for text search,
+ * and Place Details (Legacy) for opening-hours lookup.
  */
 
 export interface RestaurantResult {
+  placeId: string;
   name: string;
   cuisine: string;
   address: string;
   rating: number;
   distanceKm: number;
+  openNow: boolean;
 }
 
 interface GeocodeResult {
@@ -25,10 +28,35 @@ interface LegacyPlaceResult {
   geometry?: { location?: { lat?: number; lng?: number } };
   rating?: number;
   place_id?: string;
+  opening_hours?: { open_now?: boolean };
 }
 
 interface LegacyPlacesResponse {
   results?: LegacyPlaceResult[];
+  status: string;
+  error_message?: string;
+}
+
+export interface OpeningPeriod {
+  open: { day: number; time: string };
+  close?: { day: number; time: string };
+}
+
+export interface PlaceOpeningHours {
+  periods: OpeningPeriod[];
+  weekdayText: string[];
+}
+
+interface PlaceDetailsResponse {
+  result?: {
+    opening_hours?: {
+      periods?: Array<{
+        open: { day: number; time: string };
+        close?: { day: number; time: string };
+      }>;
+      weekday_text?: string[];
+    };
+  };
   status: string;
   error_message?: string;
 }
@@ -135,11 +163,89 @@ export async function searchRestaurants(
       const lng = p.geometry?.location?.lng ?? centerLng;
       const distanceKm = haversineKm(centerLat, centerLng, lat, lng);
       return {
+        placeId: p.place_id ?? '',
         name: p.name ?? 'Unnamed place',
         cuisine: cuisineLower,
         address: p.formatted_address ?? '',
         rating: typeof p.rating === 'number' ? p.rating : 0,
         distanceKm: Math.round(distanceKm * 10) / 10,
+        openNow: p.opening_hours?.open_now ?? false,
       };
     });
+}
+
+/**
+ * Fetch opening hours for a place via Place Details (Legacy).
+ * GET /maps/api/place/details/json?place_id=...&fields=opening_hours
+ */
+export async function getPlaceOpeningHours(
+  placeId: string,
+  apiKey: string
+): Promise<PlaceOpeningHours | null> {
+  const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
+  url.searchParams.set('place_id', placeId);
+  url.searchParams.set('fields', 'opening_hours');
+  url.searchParams.set('key', apiKey);
+
+  const res = await fetch(url.toString());
+  const data = (await res.json()) as PlaceDetailsResponse;
+
+  if (data.status !== 'OK') return null;
+
+  const oh = data.result?.opening_hours;
+  if (!oh?.periods?.length) return null;
+
+  return {
+    periods: oh.periods.map((p) => ({
+      open: p.open,
+      close: p.close,
+    })),
+    weekdayText: oh.weekday_text ?? [],
+  };
+}
+
+/**
+ * Check whether a place is open at a specific day + time based on its periods.
+ * @param periods - from Place Details `opening_hours.periods`
+ * @param day - JS day-of-week: 0 = Sunday, 6 = Saturday
+ * @param hhmm - time in "HHMM" format (e.g. "1000", "1430")
+ */
+export function isOpenAtHour(
+  periods: OpeningPeriod[],
+  day: number,
+  hhmm: string
+): boolean {
+  // A single period with open day=0 time="0000" and no close means open 24/7
+  if (
+    periods.length === 1 &&
+    periods[0].open.day === 0 &&
+    periods[0].open.time === '0000' &&
+    !periods[0].close
+  ) {
+    return true;
+  }
+
+  const target = parseInt(hhmm, 10);
+
+  for (const period of periods) {
+    if (!period.close) continue;
+
+    const openDay = period.open.day;
+    const closeDay = period.close.day;
+    const openTime = parseInt(period.open.time, 10);
+    const closeTime = parseInt(period.close.time, 10);
+
+    if (openDay === closeDay) {
+      if (day === openDay && target >= openTime && target < closeTime) {
+        return true;
+      }
+    } else {
+      // Overnight span (e.g. open Friday 2200, close Saturday 0200)
+      const nextDay = (openDay + 1) % 7;
+      if (day === openDay && target >= openTime) return true;
+      if (day === nextDay && target < closeTime) return true;
+    }
+  }
+
+  return false;
 }

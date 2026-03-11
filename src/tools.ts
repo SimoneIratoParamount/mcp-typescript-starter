@@ -43,6 +43,8 @@ import { z } from 'zod';
 import {
   resolveLocation,
   searchRestaurants,
+  getPlaceOpeningHours,
+  isOpenAtHour,
 } from './services/google-places.js';
 
 let bonusToolLoaded = false;
@@ -613,13 +615,17 @@ function registerMealRecommendationTool(server: McpServer): void {
     'recommend_meal',
     {
       title: 'Recommend Meal',
-      description: `Find a restaurant matching the given cuisine near the given location. Uses Google Maps for real-world results. Provide a city name, address, or "lat,lng" coordinates.`,
+      description: `Find a restaurant matching the given cuisine near the given location. Uses Google Maps for real-world results. Provide a city name, address, or "lat,lng" coordinates. Strongly advised passing an hour argument (HH:MM) to filter by places open at that time.`,
       inputSchema: {
         cuisine: z.string().describe('Type of cuisine (e.g. italian, japanese, mexican, thai)'),
         location: z
           .string()
+          .describe('City, address, or "lat,lng" to search near (e.g. "Berlin", "52.52,13.405")'),
+        hour: z
+          .string()
+          .optional()
           .describe(
-            'City, address, or "lat,lng" to search near (e.g. "Berlin", "52.52,13.405")'
+            'Time to check availability (HH:MM 24h format, e.g. "10:00", "14:30"). Omit to just check if open right now.'
           ),
       },
       outputSchema: {
@@ -628,6 +634,8 @@ function registerMealRecommendationTool(server: McpServer): void {
         address: z.string(),
         rating: z.number(),
         distanceKm: z.number(),
+        openNow: z.boolean(),
+        openingHours: z.string().optional(),
       },
       annotations: {
         readOnlyHint: true,
@@ -636,7 +644,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         openWorldHint: true,
       },
     },
-    async ({ cuisine, location }) => {
+    async ({ cuisine, location, hour }) => {
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
       if (!apiKey?.trim()) {
         return {
@@ -665,12 +673,7 @@ function registerMealRecommendationTool(server: McpServer): void {
 
       let restaurants;
       try {
-        restaurants = await searchRestaurants(
-          cuisine,
-          coords.lat,
-          coords.lng,
-          apiKey
-        );
+        restaurants = await searchRestaurants(cuisine, coords.lat, coords.lng, apiKey);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
@@ -696,9 +699,83 @@ function registerMealRecommendationTool(server: McpServer): void {
         };
       }
 
-      const best = [...restaurants].sort(
+      const sorted = [...restaurants].sort(
         (a, b) => a.distanceKm - b.distanceKm || b.rating - a.rating
-      )[0];
+      );
+
+      // --- Path 2: hour specified → fetch Place Details and filter ---
+      if (hour) {
+        const match = hour.match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Invalid hour format "${hour}". Use HH:MM in 24h format (e.g. "10:00", "14:30").`,
+              },
+            ],
+            isError: true,
+          };
+        }
+        const hhmm = match[1].padStart(2, '0') + match[2];
+        const dayOfWeek = new Date().getDay(); // 0=Sun … 6=Sat
+
+        const top = sorted.slice(0, 5);
+        const detailResults = await Promise.all(
+          top.map(async (r) => {
+            if (!r.placeId) return { restaurant: r, hours: null };
+            const hours = await getPlaceOpeningHours(r.placeId, apiKey);
+            return { restaurant: r, hours };
+          })
+        );
+
+        const openAtHour = detailResults.filter(
+          (d) => d.hours && isOpenAtHour(d.hours.periods, dayOfWeek, hhmm)
+        );
+
+        if (openAtHour.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No ${cuisine} restaurant found open at ${hour} near ${location}. Try a different time or cuisine.`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const pick = openAtHour[0];
+        const best = pick.restaurant;
+        const schedule = pick.hours!.weekdayText.join('\n');
+
+        const recommendation = {
+          name: best.name,
+          cuisine: best.cuisine,
+          address: best.address,
+          rating: best.rating,
+          distanceKm: best.distanceKm,
+          openNow: best.openNow,
+          openingHours: schedule,
+        };
+
+        const text = [
+          `**Best ${cuisine} pick open at ${hour}:** ${recommendation.name}`,
+          `Cuisine: ${recommendation.cuisine}`,
+          `Address: ${recommendation.address}`,
+          `Rating: ${recommendation.rating}/5 · ${recommendation.distanceKm} km away`,
+          `Open now: ${recommendation.openNow ? 'Yes' : 'No'}`,
+          `Opening hours:\n${schedule}`,
+        ].join('\n');
+
+        return {
+          content: [{ type: 'text', text }],
+          structuredContent: recommendation,
+        };
+      }
+
+      // --- Path 1: no hour → return best result with openNow ---
+      const best = sorted[0];
 
       const recommendation = {
         name: best.name,
@@ -706,6 +783,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         address: best.address,
         rating: best.rating,
         distanceKm: best.distanceKm,
+        openNow: best.openNow,
       };
 
       const text = [
@@ -713,6 +791,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         `Cuisine: ${recommendation.cuisine}`,
         `Address: ${recommendation.address}`,
         `Rating: ${recommendation.rating}/5 · ${recommendation.distanceKm} km away`,
+        `Open now: ${recommendation.openNow ? 'Yes' : 'No'}`,
       ].join('\n');
 
       return {
