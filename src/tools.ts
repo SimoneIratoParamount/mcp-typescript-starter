@@ -921,8 +921,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         `**Top ${recommendations.length} ${cuisine} picks${timeDesc} near ${location ?? 'you'}:**`,
         '',
         ...recommendations.map(
-          (r, i) =>
-            `${i + 1}. **${r.name}** — ${r.rating}/5 · ${r.distanceKm} km · ${r.address}`
+          (r, i) => `${i + 1}. **${r.name}** — ${r.rating}/5 · ${r.distanceKm} km · ${r.address}`
         ),
       ];
       if (weather) lines.push('', `Weather: ${weather.temperature}°C, ${weather.conditions}`);
@@ -931,7 +930,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         content: [{ type: 'text', text: lines.join('\n') }],
         structuredContent: { recommendations, weather: weatherSnapshot },
       };
-    },
+    }
   );
 
   registerAppResource(
@@ -944,6 +943,6 @@ function registerMealRecommendationTool(server: McpServer): void {
       return {
         contents: [{ uri: resourceUri, mimeType: RESOURCE_MIME_TYPE, text: html }],
       };
-    },
+    }
   );
 }

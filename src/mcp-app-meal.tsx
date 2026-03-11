@@ -99,6 +99,81 @@ function getWeatherTheme(conditions: string): { emoji: string; gradient: string 
   return { emoji: '☀️', gradient: 'linear-gradient(135deg, #f7971e 0%, #ffd200 100%)' };
 }
 
+// ---------------------------------------------------------------------------
+// Rush hour logic (heuristic — no API needed)
+// ---------------------------------------------------------------------------
+
+interface RushStatus {
+  level: 'low' | 'medium' | 'high';
+  label: string;
+  color: string;
+  bg: string;
+}
+
+/**
+ * Returns relative busyness (0–10) for a given hour of the day (0–23)
+ * based on a typical sit-down restaurant pattern.
+ */
+function busynessAt(hour: number, isWeekend: boolean): number {
+  const weekday: Record<number, number> = {
+    9: 1,
+    10: 2,
+    11: 4,
+    12: 9,
+    13: 10,
+    14: 7,
+    15: 3,
+    16: 2,
+    17: 4,
+    18: 8,
+    19: 10,
+    20: 9,
+    21: 6,
+    22: 3,
+  };
+  const weekend: Record<number, number> = {
+    9: 2,
+    10: 4,
+    11: 6,
+    12: 8,
+    13: 9,
+    14: 8,
+    15: 6,
+    16: 4,
+    17: 5,
+    18: 7,
+    19: 10,
+    20: 10,
+    21: 7,
+    22: 4,
+  };
+  return (isWeekend ? weekend : weekday)[hour] ?? 0;
+}
+
+function getRushStatus(): RushStatus {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const isWeekend = now.getDay() === 0 || now.getDay() === 6;
+  const t = h + m / 60;
+
+  // Lunch rush
+  const lunchStart = isWeekend ? 12 : 11.5;
+  const lunchEnd = isWeekend ? 14.5 : 14;
+  if (t >= lunchStart && t < lunchEnd)
+    return { level: 'high', label: 'Lunch rush', color: '#c5221f', bg: '#fce8e6' };
+  // Dinner rush
+  if (t >= 18 && t < 21)
+    return { level: 'high', label: 'Dinner rush', color: '#c5221f', bg: '#fce8e6' };
+  // Approaching busy periods
+  if ((t >= 11 && t < lunchStart) || (t >= 17 && t < 18))
+    return { level: 'medium', label: 'Getting busier', color: '#b45309', bg: '#fef3c7' };
+
+  return { level: 'low', label: 'Usually not busy', color: '#188038', bg: '#e6f4ea' };
+}
+
+// ---------------------------------------------------------------------------
+
 function renderStars(rating: number): string {
   const full = Math.floor(rating);
   const half = rating - full >= 0.5 ? 1 : 0;
@@ -127,6 +202,93 @@ function mapsSearchUrl(rec: Recommendation): string {
 }
 
 // ---------------------------------------------------------------------------
+// Popular times bar chart
+// ---------------------------------------------------------------------------
+
+function PopularTimes() {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const isWeekend = now.getDay() === 0 || now.getDay() === 6;
+  const rush = getRushStatus();
+  const hours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+
+  return (
+    <div style={{ marginTop: 2 }}>
+      {/* Rush badge */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 8,
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#3c4043' }}>Popular times</span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            padding: '2px 8px',
+            borderRadius: 100,
+            color: rush.color,
+            background: rush.bg,
+          }}
+        >
+          {rush.level === 'high' ? '🔴' : rush.level === 'medium' ? '🟡' : '🟢'} {rush.label}
+        </span>
+      </div>
+
+      {/* Bar chart */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 36 }}>
+        {hours.map((h) => {
+          const busy = busynessAt(h, isWeekend);
+          const isCurrent = h === currentHour;
+          const barHeight = Math.max(4, Math.round((busy / 10) * 32));
+          return (
+            <div
+              key={h}
+              title={`${h}:00`}
+              style={{
+                flex: 1,
+                height: barHeight,
+                borderRadius: '3px 3px 0 0',
+                background: isCurrent
+                  ? rush.level === 'high'
+                    ? '#c5221f'
+                    : rush.level === 'medium'
+                      ? '#f59e0b'
+                      : '#188038'
+                  : '#dadce0',
+                transition: 'height 0.2s',
+                cursor: 'default',
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Hour labels */}
+      <div style={{ display: 'flex', gap: 3, marginTop: 3 }}>
+        {hours.map((h) => (
+          <div
+            key={h}
+            style={{
+              flex: 1,
+              fontSize: 8,
+              textAlign: 'center',
+              color: h === currentHour ? '#1a73e8' : '#9aa0a6',
+              fontWeight: h === currentHour ? 700 : 400,
+            }}
+          >
+            {h === 12 ? '12p' : h > 12 ? `${h - 12}p` : `${h}a`}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Weather card (compact horizontal)
 // ---------------------------------------------------------------------------
 
@@ -149,24 +311,59 @@ function WeatherCard({ w }: { w: WeatherSnapshot }) {
     >
       <span style={{ fontSize: 44, lineHeight: 1, flexShrink: 0 }}>{emoji}</span>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', opacity: 0.85 }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: '1.2px',
+            textTransform: 'uppercase',
+            opacity: 0.85,
+          }}
+        >
           {w.location}
         </div>
         <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1.1, letterSpacing: -1 }}>
-          {w.temperature}<span style={{ fontSize: 16, fontWeight: 300, verticalAlign: 'super' }}>°C</span>
+          {w.temperature}
+          <span style={{ fontSize: 16, fontWeight: 300, verticalAlign: 'super' }}>°C</span>
         </div>
         <div style={{ fontSize: 13, textTransform: 'capitalize', opacity: 0.9, marginTop: 2 }}>
           {w.conditions}
         </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'right', flexShrink: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          textAlign: 'right',
+          flexShrink: 0,
+        }}
+      >
         <div>
           <div style={{ fontSize: 15, fontWeight: 600 }}>{w.humidity}%</div>
-          <div style={{ fontSize: 10, opacity: 0.72, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Humidity</div>
+          <div
+            style={{
+              fontSize: 10,
+              opacity: 0.72,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Humidity
+          </div>
         </div>
         <div>
           <div style={{ fontSize: 15, fontWeight: 600 }}>{w.windSpeed} m/s</div>
-          <div style={{ fontSize: 10, opacity: 0.72, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Wind</div>
+          <div
+            style={{
+              fontSize: 10,
+              opacity: 0.72,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Wind
+          </div>
         </div>
       </div>
     </div>
@@ -187,9 +384,12 @@ interface CardProps {
 function RestaurantCard({ rec, app, index, total }: CardProps) {
   const { emoji, gradient } = getCuisineTheme(rec.cuisine);
 
-  const openLink = useCallback((url: string) => {
-    app.openLink({ url }).catch(console.error);
-  }, [app]);
+  const openLink = useCallback(
+    (url: string) => {
+      app.openLink({ url }).catch(console.error);
+    },
+    [app]
+  );
 
   const openNowText = rec.openNow ? 'Open now' : 'Closed';
   const firstHourLine = rec.openingHours?.split('\n')[0];
@@ -212,7 +412,9 @@ function RestaurantCard({ rec, app, index, total }: CardProps) {
         <div className="name-row">
           <div className="name">{rec.name}</div>
           <div className="rating-pill">
-            <span className="star" style={{ color: '#fbbc04' }}>★</span>
+            <span className="star" style={{ color: '#fbbc04' }}>
+              ★
+            </span>
             <span className="rating-number">{rec.rating.toFixed(1)}</span>
           </div>
         </div>
@@ -224,9 +426,7 @@ function RestaurantCard({ rec, app, index, total }: CardProps) {
 
         {/* Status + distance */}
         <div className="meta-row">
-          <span className={`open-badge ${rec.openNow ? 'open' : 'closed'}`}>
-            {openNowText}
-          </span>
+          <span className={`open-badge ${rec.openNow ? 'open' : 'closed'}`}>{openNowText}</span>
           {firstHourLine && (
             <>
               <span className="dot">·</span>
@@ -243,15 +443,23 @@ function RestaurantCard({ rec, app, index, total }: CardProps) {
           <span className="address">{rec.address}</span>
         </div>
 
+        {/* Popular times */}
+        <div className="divider" />
+        <PopularTimes />
+
         {/* Travel advisory */}
         {rec.travelAdvisory && (
           <>
             <div className="divider" />
             <div className="advisory-row">
               <span className="advisory-icon">
-                {rec.weatherConditions?.toLowerCase().includes('rain') ? '🌧️' :
-                 rec.weatherConditions?.toLowerCase().includes('snow') ? '❄️' :
-                 rec.weatherConditions?.toLowerCase().includes('thunder') ? '⛈️' : '🌤️'}
+                {rec.weatherConditions?.toLowerCase().includes('rain')
+                  ? '🌧️'
+                  : rec.weatherConditions?.toLowerCase().includes('snow')
+                    ? '❄️'
+                    : rec.weatherConditions?.toLowerCase().includes('thunder')
+                      ? '⛈️'
+                      : '🌤️'}
               </span>
               <span className="advisory-text">{rec.travelAdvisory}</span>
             </div>
@@ -262,16 +470,10 @@ function RestaurantCard({ rec, app, index, total }: CardProps) {
 
         {/* Action buttons */}
         <div className="actions">
-          <button
-            className="btn btn-primary"
-            onClick={() => openLink(mapsDirectionsUrl(rec))}
-          >
+          <button className="btn btn-primary" onClick={() => openLink(mapsDirectionsUrl(rec))}>
             ↗ Directions
           </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => openLink(mapsSearchUrl(rec))}
-          >
+          <button className="btn btn-secondary" onClick={() => openLink(mapsSearchUrl(rec))}>
             🗺 Maps
           </button>
         </div>
@@ -319,11 +521,7 @@ function Carousel({ recommendations, app }: CarouselProps) {
           >
             ‹
           </button>
-          <button
-            onClick={next}
-            className="carousel-arrow carousel-arrow-right"
-            aria-label="Next"
-          >
+          <button onClick={next} className="carousel-arrow carousel-arrow-right" aria-label="Next">
             ›
           </button>
         </>
@@ -424,11 +622,7 @@ function MealApp() {
     );
 
   if (!app || !data)
-    return (
-      <div className="status">
-        {!app ? 'Connecting…' : 'Finding restaurants…'}
-      </div>
-    );
+    return <div className="status">{!app ? 'Connecting…' : 'Finding restaurants…'}</div>;
 
   return (
     <div
@@ -466,5 +660,5 @@ function MealApp() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MealApp />
-  </StrictMode>,
+  </StrictMode>
 );
