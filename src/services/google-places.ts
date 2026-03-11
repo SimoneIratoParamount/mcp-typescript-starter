@@ -4,6 +4,8 @@
  * and Place Details (Legacy) for opening-hours lookup.
  */
 
+import * as geoip from 'geoip-lite';
+
 export interface RestaurantResult {
   placeId: string;
   name: string;
@@ -114,6 +116,22 @@ export function parseLatLng(location: string): { lat: number; lng: number } | nu
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
+}
+
+/**
+ * Convert an IP address to approximate lat/lng using the offline geoip-lite
+ * database. Returns null if the lookup fails or the address is invalid.
+ */
+export function ipToLatLng(ip: string): { lat: number; lng: number } | null {
+  try {
+    const geo = geoip.lookup(ip);
+    if (geo?.ll && geo.ll.length === 2) {
+      return { lat: geo.ll[0], lng: geo.ll[1] };
+    }
+  } catch {
+    // lookup failed
+  }
+  return null;
 }
 
 /**

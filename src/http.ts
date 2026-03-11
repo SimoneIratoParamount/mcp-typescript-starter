@@ -77,6 +77,9 @@ async function main() {
         await server.connect(transport);
       }
 
+      req.body.metadata = req.body.metadata ?? {};
+      req.body.metadata.clientIp = req.ip || req.headers['x-forwarded-for'] || '';
+
       await transport.handleRequest(req, res, req.body);
 
       // Store the transport after handleRequest so sessionId is set

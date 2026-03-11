@@ -45,10 +45,16 @@ import {
   searchRestaurants,
   getPlaceOpeningHours,
   isOpenAtHour,
+  ipToLatLng,
 } from './services/google-places.js';
 import { getWeather } from './services/openweather.js';
 
 let bonusToolLoaded = false;
+
+interface ExtraMetadata {
+  request?: { body?: { metadata?: { clientIp?: string } } };
+  message?: { metadata?: { clientIp?: string } };
+}
 
 /**
  * Register all tools with the server.
@@ -645,7 +651,10 @@ function registerMealRecommendationTool(server: McpServer): void {
         cuisine: z.string().describe('Type of cuisine (e.g. italian, japanese, mexican, thai)'),
         location: z
           .string()
-          .describe('City, address, or "lat,lng" to search near (e.g. "Berlin", "52.52,13.405")'),
+          .optional()
+          .describe(
+            'City, address, or "lat,lng" to search near; omit to use client IP as a fallback'
+          ),
         hour: z
           .string()
           .optional()
@@ -669,7 +678,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         openWorldHint: true,
       },
     },
-    async ({ cuisine, location, hour }) => {
+    async ({ cuisine, location, hour }, extra) => {
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
       if (!apiKey?.trim()) {
         return {
@@ -683,7 +692,31 @@ function registerMealRecommendationTool(server: McpServer): void {
         };
       }
 
-      const coords = await resolveLocation(location, apiKey);
+      let coords: { lat: number; lng: number } | null = null;
+
+      if (location?.trim()) {
+        coords = await resolveLocation(location, apiKey);
+      } else {
+        // inspect the `extra` object to see what metadata the transport attached
+        const extraTyped = extra as ExtraMetadata;
+        // try a few plausible places where the clientIp might live
+        const ip =
+          (extraTyped.request?.body?.metadata?.clientIp as string) ||
+          (extraTyped.message?.metadata?.clientIp as string) ||
+          '';
+
+        console.log('[recommend_meal] client IP fallback:', JSON.stringify(extra));
+
+        if (ip) {
+          console.log('[recommend_meal] client IP fallback:', ip);
+          try {
+            coords = ipToLatLng(ip);
+          } catch (e) {
+            console.warn('[recommend_meal] failed to convert IP to coords', e);
+          }
+        }
+      }
+
       if (!coords) {
         return {
           content: [

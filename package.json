@@ -28,8 +28,10 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "@types/geoip-lite": "^1.4.4",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
+    "geoip-lite": "^2.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
