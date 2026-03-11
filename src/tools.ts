@@ -764,9 +764,42 @@ function registerMealRecommendationTool(server: McpServer): void {
         };
       }
 
+      let effectiveLocation = location;
+
+      // When no location is provided, use elicitation to ask the user
+      if (!effectiveLocation?.trim()) {
+        try {
+          const elicit = await server.server.elicitInput({
+            mode: 'form',
+            message:
+              'Providing your location would improve recommendations. ' +
+              'Please share a city, address, or neighbourhood so we can find the best spots nearby.',
+            requestedSchema: {
+              type: 'object',
+              properties: {
+                location: {
+                  type: 'string',
+                  title: 'Location',
+                  description:
+                    'City, address, or neighbourhood (e.g. "Buikslotermeerplein, Amsterdam")',
+                },
+              },
+              required: ['location'],
+            },
+          });
+
+          if (elicit.action === 'accept' && elicit.content) {
+            const loc = (elicit.content as { location?: string }).location;
+            if (loc?.trim()) effectiveLocation = loc;
+          }
+        } catch {
+          // Elicitation not supported by client — fall through to IP/geolocation
+        }
+      }
+
       let coords: { lat: number; lng: number } | null = null;
-      if (location?.trim()) {
-        coords = await resolveLocation(location, apiKey);
+      if (effectiveLocation?.trim()) {
+        coords = await resolveLocation(effectiveLocation, apiKey);
       } else {
         const extraTyped = extra as ExtraMetadata;
         const headers = extraTyped.requestInfo?.headers;
@@ -802,7 +835,7 @@ function registerMealRecommendationTool(server: McpServer): void {
           ? fetchWeatherByCoords(
               coords.lat,
               coords.lng,
-              location ?? '' /* fallback to google fn to get location from coords */,
+              effectiveLocation ?? '' /* fallback to google fn to get location from coords */,
               weatherKey
             )
           : Promise.reject(new Error('no key')),
@@ -825,7 +858,7 @@ function registerMealRecommendationTool(server: McpServer): void {
           content: [
             {
               type: 'text',
-              text: `No restaurant found for cuisine "${cuisine}" near ${location}.`,
+              text: `No restaurant found for cuisine "${cuisine}" near ${effectiveLocation ?? 'your location'}.`,
             },
           ],
           isError: true,
@@ -845,7 +878,7 @@ function registerMealRecommendationTool(server: McpServer): void {
 
       // Validate hour format if provided
       let hhmm: string | null = null;
-      let dayOfWeek = new Date().getDay();
+      const dayOfWeek = new Date().getDay();
       if (hour) {
         const match = hour.match(/^(\d{1,2}):(\d{2})$/);
         if (!match) {
@@ -887,7 +920,7 @@ function registerMealRecommendationTool(server: McpServer): void {
           content: [
             {
               type: 'text',
-              text: `No ${cuisine} restaurant ${timeDesc} found near ${location ?? 'your location'}. Try a different time or cuisine.`,
+              text: `No ${cuisine} restaurant ${timeDesc} found near ${effectiveLocation ?? 'your location'}. Try a different time or cuisine.`,
             },
           ],
           isError: true,
@@ -937,7 +970,7 @@ function registerMealRecommendationTool(server: McpServer): void {
 
       const timeDesc = hour ? ` open at ${hour}` : '';
       const lines = [
-        `**Top ${recommendations.length} ${cuisine} picks${timeDesc} near ${location ?? 'you'}:**`,
+        `**Top ${recommendations.length} ${cuisine} picks${timeDesc} near ${effectiveLocation ?? 'you'}:**`,
         '',
         ...recommendations.map(
           (r, i) => `${i + 1}. **${r.name}** — ${r.rating}/5 · ${r.distanceKm} km · ${r.address}`
