@@ -37,6 +37,7 @@ interface Recommendation {
 interface MealData {
   recommendations: Recommendation[];
   weather?: WeatherSnapshot;
+  cravingLevel?: number;
 }
 
 interface InputArgs {
@@ -236,6 +237,58 @@ function mapsSearchUrl(rec: Recommendation): string {
     return `https://www.google.com/maps/place/?q=place_id:${rec.placeId}`;
   }
   return `https://www.google.com/maps/search/${encodeURIComponent(rec.name + ' ' + rec.address)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Craving meter
+// ---------------------------------------------------------------------------
+
+function CravingMeter({ level }: { level: number }) {
+  const isGiovanni = level === 100;
+  const filled = Math.round((level / 100) * 5);
+  const fires = '🔥'.repeat(filled) + '🫥'.repeat(5 - filled);
+
+  const label =
+    isGiovanni   ? "Giovanni's level"    :
+    level >= 80  ? 'Very hungry'         :
+    level >= 51  ? 'Properly hungry'     :
+    level >= 26  ? 'Mildly hungry'       :
+                   'Barely peckish';
+
+  const color =
+    isGiovanni  ? '#c5221f' :
+    level >= 80 ? '#ea4335' :
+    level >= 51 ? '#f59e0b' :
+    level >= 26 ? '#34a853' :
+                  '#70757a';
+
+  const bg =
+    isGiovanni  ? '#fce8e6' :
+    level >= 80 ? '#fdecea' :
+    level >= 51 ? '#fef3c7' :
+    level >= 26 ? '#e6f4ea' :
+                  '#f1f3f4';
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#3c4043' }}>Craving level</span>
+        <span style={{ fontSize: 18, letterSpacing: 2 }}>{fires}</span>
+      </div>
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3,
+      }}>
+        <span style={{
+          fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 100,
+          color, background: bg,
+          ...(isGiovanni ? { animation: 'none', fontStyle: 'italic' } : {}),
+        }}>
+          {isGiovanni ? '🔥 ' : ''}{label}
+        </span>
+        <span style={{ fontSize: 11, color: '#9aa0a6' }}>{level} / 100</span>
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -454,9 +507,10 @@ interface CardProps {
   app: App;
   index: number;
   total: number;
+  cravingLevel: number;
 }
 
-function RestaurantCard({ rec, app, index, total }: CardProps) {
+function RestaurantCard({ rec, app, index, total, cravingLevel }: CardProps) {
   const { emoji, gradient } = getCuisineTheme(rec.cuisine);
 
   const openLink = useCallback(
@@ -529,9 +583,13 @@ function RestaurantCard({ rec, app, index, total }: CardProps) {
           <span className="address">{rec.address}</span>
         </div>
 
-        {/* Popular times */}
-        <div className="divider" />
-        <PopularTimes />
+          {/* Craving meter */}
+          <div className="divider" />
+          <CravingMeter level={cravingLevel} />
+
+          {/* Popular times */}
+          <div className="divider" />
+          <PopularTimes />
 
         {/* Travel advisory */}
         {rec.travelAdvisory && (
@@ -575,9 +633,10 @@ function RestaurantCard({ rec, app, index, total }: CardProps) {
 interface CarouselProps {
   recommendations: Recommendation[];
   app: App;
+  cravingLevel: number;
 }
 
-function Carousel({ recommendations, app }: CarouselProps) {
+function Carousel({ recommendations, app, cravingLevel }: CarouselProps) {
   const [activeIdx, setActiveIdx] = useState(0);
   const total = recommendations.length;
 
@@ -624,7 +683,7 @@ function Carousel({ recommendations, app }: CarouselProps) {
         >
           {recommendations.map((rec, i) => (
             <div key={rec.placeId ?? i} style={{ minWidth: '100%', flexShrink: 0 }}>
-              <RestaurantCard rec={rec} app={app} index={i} total={total} />
+              <RestaurantCard rec={rec} app={app} index={i} total={total} cravingLevel={cravingLevel} />
             </div>
           ))}
         </div>
@@ -729,7 +788,7 @@ function MealApp() {
       }}
     >
       {data.weather && <WeatherCard w={data.weather} />}
-      <Carousel recommendations={data.recommendations} app={app} />
+      <Carousel recommendations={data.recommendations} app={app} cravingLevel={data.cravingLevel ?? 50} />
 
       {/* Location source + actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>

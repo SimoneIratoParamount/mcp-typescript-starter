@@ -699,7 +699,8 @@ function registerMealRecommendationTool(server: McpServer): void {
       title: 'Recommend Meal',
       description:
         'Find a restaurant matching the given cuisine near the given location. ' +
-        'Weather-aware: fetches current conditions and adjusts the pick and travel advice accordingly. ' +
+        'Weather-aware: fetches current conditions and adjusts picks accordingly. ' +
+        'Craving-aware: higher craving → prioritises top-rated spots over proximity. ' +
         'Optionally pass an hour (HH:MM) to filter by places open at that time.',
       inputSchema: {
         cuisine: z.string().describe('Type of cuisine (e.g. italian, japanese, mexican, thai)'),
@@ -714,6 +715,17 @@ function registerMealRecommendationTool(server: McpServer): void {
           .optional()
           .describe(
             'Time to check availability (HH:MM 24h, e.g. "14:30"). Omit to use open-now status.'
+          ),
+        cravingLevel: z
+          .number()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe(
+            'How hungry the user is on a scale of 1–100 (1 = barely peckish, 100 = Giovanni-level starving). ' +
+              'Infer from context: "peckish" → 15, "could eat" → 35, "hungry" → 60, "starving" → 85, ' +
+              '"haven\'t eaten all day / dying" → 95–100. ' +
+              'Ask the user only if the intent is completely ambiguous. Defaults to 50 if omitted.'
           ),
       },
       outputSchema: {
@@ -741,6 +753,7 @@ function registerMealRecommendationTool(server: McpServer): void {
             windSpeed: z.number(),
           })
           .optional(),
+        cravingLevel: z.number(),
       },
       annotations: {
         readOnlyHint: true,
@@ -750,7 +763,8 @@ function registerMealRecommendationTool(server: McpServer): void {
       },
       _meta: { ui: { resourceUri } },
     },
-    async ({ cuisine, location, hour }, extra) => {
+    async ({ cuisine, location, hour, cravingLevel }, extra) => {
+      const craving = cravingLevel ?? 50;
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
       if (!apiKey?.trim()) {
         return {
@@ -869,12 +883,23 @@ function registerMealRecommendationTool(server: McpServer): void {
       const weather = weatherResult.status === 'fulfilled' ? weatherResult.value : null;
       const weatherSeverity = weather ? classifyWeather(weather.conditions) : 'good';
 
-      // Sort strategy: bad weather → minimise distance; good weather → distance then rating
-      const sorted = [...restaurants].sort((a, b) =>
-        weatherSeverity === 'bad'
-          ? a.distanceKm - b.distanceKm
-          : a.distanceKm - b.distanceKm || b.rating - a.rating
-      );
+      // Sort strategy driven by craving level:
+      //  1–25  → nearest (barely hungry, just want something quick)
+      //  26–50 → nearest then best-rated (mild hunger or bad weather)
+      //  51–75 → best-rated then nearest (properly hungry, quality matters)
+      //  76–100 → pure rating (very hungry / Giovanni mode — brave any distance)
+      // Bad weather caps the strategy at 26–50 unless craving ≥ 80.
+      const sorted = [...restaurants].sort((a, b) => {
+        if (craving <= 25) {
+          return a.distanceKm - b.distanceKm;
+        } else if (craving <= 50 || (weatherSeverity === 'bad' && craving < 80)) {
+          return a.distanceKm - b.distanceKm || b.rating - a.rating;
+        } else if (craving <= 75) {
+          return b.rating - a.rating || a.distanceKm - b.distanceKm;
+        } else {
+          return b.rating - a.rating;
+        }
+      });
 
       // Validate hour format if provided
       let hhmm: string | null = null;
@@ -968,9 +993,21 @@ function registerMealRecommendationTool(server: McpServer): void {
           }
         : undefined;
 
+      const cravingLabel =
+        craving === 100
+          ? "🔥 Giovanni's level — only the absolute best will do"
+          : craving >= 80
+            ? `Very hungry (${craving}/100) — prioritised top-rated spots`
+            : craving >= 51
+              ? `Properly hungry (${craving}/100) — quality over proximity`
+              : craving >= 26
+                ? `Mildly hungry (${craving}/100) — balanced pick`
+                : `Barely peckish (${craving}/100) — closest option wins`;
+
       const timeDesc = hour ? ` open at ${hour}` : '';
       const lines = [
         `**Top ${recommendations.length} ${cuisine} picks${timeDesc} near ${effectiveLocation ?? 'you'}:**`,
+        `Craving level: ${cravingLabel}`,
         '',
         ...recommendations.map(
           (r, i) => `${i + 1}. **${r.name}** — ${r.rating}/5 · ${r.distanceKm} km · ${r.address}`
@@ -980,7 +1017,7 @@ function registerMealRecommendationTool(server: McpServer): void {
 
       return {
         content: [{ type: 'text', text: lines.join('\n') }],
-        structuredContent: { recommendations, weather: weatherSnapshot },
+        structuredContent: { recommendations, weather: weatherSnapshot, cravingLevel: craving },
       };
     }
   );
@@ -1012,6 +1049,6 @@ function registerMealRecommendationTool(server: McpServer): void {
           },
         ],
       };
-    },
+    }
   );
 }
