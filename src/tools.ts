@@ -52,6 +52,7 @@ import {
   resolveLocation,
   searchRestaurants,
   getPlaceOpeningHours,
+  getPlacePhotoUrl,
   isOpenAtHour,
   ipToLatLng,
   geolocateViaGoogle,
@@ -174,7 +175,14 @@ function registerWeatherTool(server: McpServer): void {
     async () => {
       const html = await readFile(join(DIST_DIR, 'mcp-app.html'), 'utf-8');
       return {
-        contents: [{ uri: resourceUri, mimeType: RESOURCE_MIME_TYPE, text: html }],
+        contents: [
+          {
+            uri: resourceUri,
+            mimeType: RESOURCE_MIME_TYPE,
+            text: html,
+            _meta: { ui: { csp: { resourceDomains: ['https://images.unsplash.com'] } } },
+          },
+        ],
       };
     }
   );
@@ -718,6 +726,7 @@ function registerMealRecommendationTool(server: McpServer): void {
             distanceKm: z.number(),
             openNow: z.boolean(),
             placeId: z.string().optional(),
+            photoUrl: z.string().optional(),
             openingHours: z.string().optional(),
             weatherConditions: z.string().optional(),
             travelAdvisory: z.string().optional(),
@@ -888,7 +897,16 @@ function registerMealRecommendationTool(server: McpServer): void {
       // Take the top 5 open places
       const top5 = openPlaces.slice(0, 5);
 
-      const recommendations = top5.map((d) => {
+      // Resolve Google Places photo CDN URLs in parallel (fails silently per item)
+      const photoUrls = await Promise.all(
+        top5.map((d) =>
+          d.restaurant.photoReference
+            ? getPlacePhotoUrl(d.restaurant.photoReference, apiKey).catch(() => null)
+            : Promise.resolve(null)
+        )
+      );
+
+      const recommendations = top5.map((d, i) => {
         const r = d.restaurant;
         const schedule = d.hours?.weekdayText.join('\n');
         const advisory = weather ? buildTravelAdvisory(weather.conditions, r.distanceKm) : '';
@@ -900,6 +918,7 @@ function registerMealRecommendationTool(server: McpServer): void {
           distanceKm: r.distanceKm,
           openNow: r.openNow,
           placeId: r.placeId || undefined,
+          photoUrl: photoUrls[i] ?? undefined,
           openingHours: schedule,
           weatherConditions: weather?.conditions,
           travelAdvisory: advisory || undefined,
@@ -941,8 +960,25 @@ function registerMealRecommendationTool(server: McpServer): void {
     async () => {
       const html = await readFile(join(DIST_DIR, 'mcp-app-meal.html'), 'utf-8');
       return {
-        contents: [{ uri: resourceUri, mimeType: RESOURCE_MIME_TYPE, text: html }],
+        contents: [
+          {
+            uri: resourceUri,
+            mimeType: RESOURCE_MIME_TYPE,
+            text: html,
+            _meta: {
+              ui: {
+                csp: {
+                  resourceDomains: [
+                    'https://lh3.googleusercontent.com',
+                    'https://maps.googleapis.com',
+                    'https://images.unsplash.com',
+                  ],
+                },
+              },
+            },
+          },
+        ],
       };
-    }
+    },
   );
 }

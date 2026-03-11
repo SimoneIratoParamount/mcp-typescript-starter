@@ -30,6 +30,34 @@ interface Theme {
   gradient: string;
 }
 
+// Curated Unsplash photo IDs per weather condition (stable CDN URLs, no API key needed)
+const WEATHER_PHOTOS: Array<[string, string]> = [
+  ['thunder', 'photo-1429552077091-836152271555'],
+  ['storm',   'photo-1429552077091-836152271555'],
+  ['snow',    'photo-1491002052546-bf38f186af56'],
+  ['sleet',   'photo-1491002052546-bf38f186af56'],
+  ['blizzard','photo-1491002052546-bf38f186af56'],
+  ['rain',    'photo-1519692933481-e162a57d6721'],
+  ['drizzle', 'photo-1519692933481-e162a57d6721'],
+  ['fog',     'photo-1495107334309-fcf20504a5ab'],
+  ['mist',    'photo-1495107334309-fcf20504a5ab'],
+  ['haze',    'photo-1495107334309-fcf20504a5ab'],
+  ['cloud',   'photo-1534088568595-a066f410bcda'],
+  ['overcast','photo-1534088568595-a066f410bcda'],
+  ['clear',   'photo-1507003211169-0a1dd7228f2d'],
+  ['sunny',   'photo-1507003211169-0a1dd7228f2d'],
+];
+
+function getWeatherPhotoUrl(conditions: string): string | null {
+  const c = conditions.toLowerCase();
+  for (const [key, id] of WEATHER_PHOTOS) {
+    if (c.includes(key)) {
+      return `https://images.unsplash.com/${id}?w=900&q=80&auto=format&fit=crop`;
+    }
+  }
+  return null;
+}
+
 function getTheme(conditions: string): Theme {
   const c = conditions.toLowerCase();
   if (c.includes('thunder') || c.includes('storm'))
@@ -77,6 +105,7 @@ interface WeatherCardProps {
 function WeatherCard({ weather, inputCity, app }: WeatherCardProps) {
   const [loading, setLoading] = useState(false);
   const { emoji, gradient } = getTheme(weather.conditions);
+  const photoUrl = getWeatherPhotoUrl(weather.conditions);
 
   const handleRefresh = useCallback(async () => {
     setLoading(true);
@@ -92,15 +121,22 @@ function WeatherCard({ weather, inputCity, app }: WeatherCardProps) {
   return (
     <div
       style={{
-        background: gradient,
+        background: photoUrl ? `url(${photoUrl}) center/cover no-repeat` : gradient,
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '20px',
+        position: 'relative',
       }}
     >
-      <div className="card">
+      {photoUrl && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(135deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.2) 100%)',
+        }} />
+      )}
+      <div className="card" style={{ position: 'relative', zIndex: 1 }}>
         <div className="card-left">
           <span className="emoji">{emoji}</span>
           <div className="temp">

@@ -31,6 +31,7 @@ interface Recommendation {
   weatherConditions?: string;
   travelAdvisory?: string;
   placeId?: string;
+  photoUrl?: string;
 }
 
 interface MealData {
@@ -292,12 +293,40 @@ function PopularTimes() {
 // Weather card (compact horizontal)
 // ---------------------------------------------------------------------------
 
+// Same photo map as mcp-app.tsx
+const WEATHER_PHOTOS_MEAL: Array<[string, string]> = [
+  ['thunder', 'photo-1429552077091-836152271555'],
+  ['storm',   'photo-1429552077091-836152271555'],
+  ['snow',    'photo-1491002052546-bf38f186af56'],
+  ['sleet',   'photo-1491002052546-bf38f186af56'],
+  ['rain',    'photo-1519692933481-e162a57d6721'],
+  ['drizzle', 'photo-1519692933481-e162a57d6721'],
+  ['fog',     'photo-1495107334309-fcf20504a5ab'],
+  ['mist',    'photo-1495107334309-fcf20504a5ab'],
+  ['haze',    'photo-1495107334309-fcf20504a5ab'],
+  ['cloud',   'photo-1534088568595-a066f410bcda'],
+  ['overcast','photo-1534088568595-a066f410bcda'],
+  ['clear',   'photo-1507003211169-0a1dd7228f2d'],
+  ['sunny',   'photo-1507003211169-0a1dd7228f2d'],
+];
+
+function getWeatherPhotoUrlMeal(conditions: string): string | null {
+  const c = conditions.toLowerCase();
+  for (const [key, id] of WEATHER_PHOTOS_MEAL) {
+    if (c.includes(key)) {
+      return `https://images.unsplash.com/${id}?w=900&q=80&auto=format&fit=crop`;
+    }
+  }
+  return null;
+}
+
 function WeatherCard({ w }: { w: WeatherSnapshot }) {
   const { emoji, gradient } = getWeatherTheme(w.conditions);
+  const photoUrl = getWeatherPhotoUrlMeal(w.conditions);
   return (
     <div
       style={{
-        background: gradient,
+        background: photoUrl ? `url(${photoUrl}) center/cover no-repeat` : gradient,
         borderRadius: 16,
         padding: '16px 20px',
         width: '100%',
@@ -307,10 +336,18 @@ function WeatherCard({ w }: { w: WeatherSnapshot }) {
         alignItems: 'center',
         gap: 16,
         boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      <span style={{ fontSize: 44, lineHeight: 1, flexShrink: 0 }}>{emoji}</span>
-      <div style={{ flex: 1 }}>
+      {photoUrl && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(135deg, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.25) 100%)',
+        }} />
+      )}
+      <span style={{ fontSize: 44, lineHeight: 1, flexShrink: 0, position: 'relative', zIndex: 1 }}>{emoji}</span>
+      <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
         <div
           style={{
             fontSize: 12,
@@ -337,6 +374,8 @@ function WeatherCard({ w }: { w: WeatherSnapshot }) {
           gap: 8,
           textAlign: 'right',
           flexShrink: 0,
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <div>
@@ -396,9 +435,20 @@ function RestaurantCard({ rec, app, index, total }: CardProps) {
 
   return (
     <div className="card">
-      {/* Header banner */}
-      <div className="banner" style={{ background: gradient }}>
-        <span className="banner-emoji">{emoji}</span>
+      {/* Header banner — real photo when available, gradient fallback */}
+      <div
+        className="banner"
+        style={
+          rec.photoUrl
+            ? {
+                backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.55) 100%), url(${rec.photoUrl})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }
+            : { background: gradient }
+        }
+      >
+        {!rec.photoUrl && <span className="banner-emoji">{emoji}</span>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="cuisine-tag">{rec.cuisine}</span>
           <span className="cuisine-tag" style={{ opacity: 0.85, fontSize: 11 }}>

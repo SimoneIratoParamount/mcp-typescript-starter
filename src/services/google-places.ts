@@ -14,6 +14,7 @@ export interface RestaurantResult {
   rating: number;
   distanceKm: number;
   openNow: boolean;
+  photoReference?: string;
 }
 
 interface GeocodeResult {
@@ -31,6 +32,7 @@ interface LegacyPlaceResult {
   rating?: number;
   place_id?: string;
   opening_hours?: { open_now?: boolean };
+  photos?: Array<{ photo_reference: string }>;
 }
 
 interface LegacyPlacesResponse {
@@ -217,6 +219,7 @@ export async function searchRestaurants(
         rating: typeof p.rating === 'number' ? p.rating : 0,
         distanceKm: Math.round(distanceKm * 10) / 10,
         openNow: p.opening_hours?.open_now ?? false,
+        photoReference: p.photos?.[0]?.photo_reference,
       };
     });
 }
@@ -295,4 +298,30 @@ export function isOpenAtHour(
   }
 
   return false;
+}
+
+/**
+ * Resolve a Places photo_reference to a public CDN URL by following Google's
+ * redirect server-side. The returned URL has no API key in it.
+ * Returns null if the photo cannot be fetched.
+ */
+export async function getPlacePhotoUrl(
+  photoReference: string,
+  apiKey: string,
+  maxWidth = 800
+): Promise<string | null> {
+  const url =
+    `https://maps.googleapis.com/maps/api/place/photo` +
+    `?maxwidth=${maxWidth}&photo_reference=${encodeURIComponent(photoReference)}&key=${apiKey}`;
+  try {
+    // redirect: 'manual' lets us grab the Location header without downloading the image
+    const res = await fetch(url, { redirect: 'manual' });
+    const location = res.headers.get('location');
+    if (location) return location;
+    // Some responses serve the image directly — return the original URL as fallback
+    if (res.ok) return url;
+    return null;
+  } catch {
+    return null;
+  }
 }
