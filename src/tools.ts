@@ -40,6 +40,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { loadRestaurants } from './data/load-restaurants.js';
 
 let bonusToolLoaded = false;
 
@@ -596,40 +597,22 @@ function registerTickleMindTool(server: McpServer): void {
 }
 
 // =============================================================================
-// Meal recommendation – restaurant by cuisine near user
+// Meal recommendation – restaurant by cuisine (uses restaurant DB resource)
 // =============================================================================
-
-/** Mock restaurant names by cuisine for simulation. */
-const MOCK_RESTAURANTS: Record<string, string[]> = {
-  italian: ['Trattoria Roma', 'La Dolce Vita', 'Osteria del Centro', 'Pasta e Basta'],
-  japanese: ['Sakura Sushi', 'Tokyo Kitchen', 'Zen Ramen', 'Fuji House'],
-  mexican: ['El Mariachi', 'Casa de Tacos', 'Sabor Mexicano', 'La Cantina'],
-  indian: ['Taj Palace', 'Spice Route', 'Curry House', 'Bombay Bites'],
-  thai: ['Bangkok Garden', 'Thai Orchid', 'Siam Kitchen', 'Lotus Thai'],
-  french: ['Le Petit Bistro', 'Chez Pierre', 'La Maison', 'Bistro Paris'],
-  chinese: ['Dragon Wok', 'Golden Dragon', 'Panda House', 'Jade Garden'],
-  default: ['The Local Table', 'Neighborhood Kitchen', 'Downtown Eats', 'Corner Bistro'],
-};
 
 /**
  * Meal recommendation tool: find the best restaurant for a cuisine near the user.
- * Requires the user's position (latitude/longitude). In production, wire to a
- * places API (e.g. Google Places, Yelp).
+ * Uses the restaurant database (restaurants://db). User position is assumed known;
+ * each restaurant has a distanceKm value from the user.
  */
 function registerMealRecommendationTool(server: McpServer): void {
   server.registerTool(
     'recommend_meal',
     {
       title: 'Recommend Meal',
-      description: `Find the best restaurant matching the given cuisine near the user's location. Requires the user's position (latitude and longitude). Ask for the user's location or use device location if available before calling.`,
+      description: `Find the best restaurant matching the given cuisine near the user. Uses the restaurant database; distances from the user are precomputed in km. No location input required.`,
       inputSchema: {
         cuisine: z.string().describe('Type of cuisine (e.g. italian, japanese, mexican, thai)'),
-        latitude: z
-          .union([z.string(), z.number()])
-          .describe('User latitude as number or string (e.g. from device or address)'),
-        longitude: z
-          .union([z.string(), z.number()])
-          .describe('User longitude as number or string (e.g. from device or address)'),
       },
       outputSchema: {
         name: z.string(),
@@ -637,34 +620,47 @@ function registerMealRecommendationTool(server: McpServer): void {
         address: z.string(),
         rating: z.number(),
         distanceKm: z.number(),
+        plateQuantity: z.number(),
         openingHours: z.string(),
       },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: false,
-        openWorldHint: true, // Would call external places API in production
+        openWorldHint: false,
       },
     },
-    async ({ cuisine, latitude, longitude }) => {
-      const lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
-      const lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+    async ({ cuisine }) => {
+      const key = cuisine.toLowerCase().trim().replace(/\s+/g, '_');
+      const restaurants = loadRestaurants().filter(
+        (r) => r.cuisine.toLowerCase().replace(/\s+/g, '_') === key
+      );
 
-      const key = cuisine.toLowerCase().replace(/\s+/g, '_');
-      const names = MOCK_RESTAURANTS[key] ?? MOCK_RESTAURANTS.default;
-      const name = names[Math.floor(Math.random() * names.length)];
+      if (restaurants.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `No restaurant found for cuisine "${cuisine}". Try italian, japanese, mexican, indian, thai, french, or chinese.`,
+            },
+          ],
+          isError: true,
+        };
+      }
 
-      // Simulate distance from user (0.2–2.5 km) and rating (3.8–4.9)
-      const distanceKm = Math.round((0.2 + Math.random() * 2.3) * 10) / 10;
-      const rating = Math.round((3.8 + Math.random() * 1.1) * 10) / 10;
+      // Best = closest (smallest distanceKm), then by rating
+      const best = [...restaurants].sort(
+        (a, b) => a.distanceKm - b.distanceKm || b.rating - a.rating
+      )[0];
 
       const recommendation = {
-        name,
-        cuisine: cuisine.trim(),
-        address: `${Math.round(lat * 100) / 100}°N, ${Math.round(lng * 100) / 100}°W — simulated address near you`,
-        rating,
-        distanceKm,
-        openingHours: '11:00 – 23:00',
+        name: best.name,
+        cuisine: best.cuisine,
+        address: best.address,
+        rating: best.rating,
+        distanceKm: best.distanceKm,
+        plateQuantity: best.plateQuantity,
+        openingHours: best.openingHours,
       };
 
       const text = [
@@ -672,6 +668,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         `Cuisine: ${recommendation.cuisine}`,
         `Address: ${recommendation.address}`,
         `Rating: ${recommendation.rating}/5 · ${recommendation.distanceKm} km away`,
+        `Plate quantity: ${recommendation.plateQuantity}/5 (portion size)`,
         `Hours: ${recommendation.openingHours}`,
       ].join('\n');
 

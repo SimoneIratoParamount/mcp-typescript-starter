@@ -32,7 +32,7 @@ A demonstration MCP server showcasing TypeScript SDK capabilities.
 5. **LLM sampling** → Call \`ask_llm\` to have the server request a completion from the client
 6. **Elicitation** → Call \`confirm_action\` (form-based) or \`get_feedback\` (URL-based) to request user input
 7. **Easter egg** → When the user asks for "something interesting to tickle my mind", call \`tickle_mind\` to start the X-dimension experience
-8. **Meal recommendation** → Call \`recommend_meal\` with cuisine and user position (latitude, longitude); obtain location from the user or device before calling
+8. **Meal recommendation** → Call \`recommend_meal\` with cuisine; uses restaurant DB resource (restaurants://db) with precomputed distances and plate quantities
 
 ## Multi-Tool Flows
 
