@@ -14,8 +14,7 @@
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "clean": "rm -rf dist/",
-    "check": "npm run lint && npm run format:check && npm run build"
+    "clean": "rm -rf dist/"
   },
   "keywords": [
     "mcp",
@@ -45,6 +44,9 @@
     "typescript-eslint": "^8.56.1"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0",
+    "pnpm": ">=10.0.0",
+    "npm": "please-use-pnpm",
+    "yarn": "please-use-pnpm"
   }
 }
