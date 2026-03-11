@@ -147,7 +147,7 @@ function registerItemsTemplate(server: McpServer): void {
  * as JSON. Used by recommend_meal and available to clients for browsing.
  */
 function registerRestaurantsDbResource(server: McpServer): void {
-  server.resource(
+  server.registerResource(
     'Restaurant database',
     'restaurants://db',
     {

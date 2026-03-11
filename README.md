@@ -213,6 +213,7 @@ cp .env.example .env
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | HTTP server port | `3000` |
+| `GOOGLE_MAPS_API_KEY` | Google Maps API key for `recommend_meal` (Geocoding + Places API Legacy) | — |
 
 ## 🤝 Contributing
 

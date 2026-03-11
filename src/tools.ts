@@ -40,7 +40,10 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { loadRestaurants } from './data/load-restaurants.js';
+import {
+  resolveLocation,
+  searchRestaurants,
+} from './services/google-places.js';
 
 let bonusToolLoaded = false;
 
@@ -597,22 +600,27 @@ function registerTickleMindTool(server: McpServer): void {
 }
 
 // =============================================================================
-// Meal recommendation – restaurant by cuisine (uses restaurant DB resource)
+// Meal recommendation – restaurant by cuisine (Google Maps Places API)
 // =============================================================================
 
 /**
- * Meal recommendation tool: find the best restaurant for a cuisine near the user.
- * Uses the restaurant database (restaurants://db). User position is assumed known;
- * each restaurant has a distanceKm value from the user.
+ * Meal recommendation tool: find a restaurant matching the given cuisine near
+ * the given location. Uses Google Maps Geocoding and Places API (Legacy) for
+ * real-world data. Requires GOOGLE_MAPS_API_KEY in the environment.
  */
 function registerMealRecommendationTool(server: McpServer): void {
   server.registerTool(
     'recommend_meal',
     {
       title: 'Recommend Meal',
-      description: `Find the best restaurant matching the given cuisine near the user. Uses the restaurant database; distances from the user are precomputed in km. No location input required.`,
+      description: `Find a restaurant matching the given cuisine near the given location. Uses Google Maps for real-world results. Provide a city name, address, or "lat,lng" coordinates.`,
       inputSchema: {
         cuisine: z.string().describe('Type of cuisine (e.g. italian, japanese, mexican, thai)'),
+        location: z
+          .string()
+          .describe(
+            'City, address, or "lat,lng" to search near (e.g. "Berlin", "52.52,13.405")'
+          ),
       },
       outputSchema: {
         name: z.string(),
@@ -627,28 +635,69 @@ function registerMealRecommendationTool(server: McpServer): void {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: false,
-        openWorldHint: false,
+        openWorldHint: true,
       },
     },
-    async ({ cuisine }) => {
-      const key = cuisine.toLowerCase().trim().replace(/\s+/g, '_');
-      const restaurants = loadRestaurants().filter(
-        (r) => r.cuisine.toLowerCase().replace(/\s+/g, '_') === key
-      );
-
-      if (restaurants.length === 0) {
+    async ({ cuisine, location }) => {
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey?.trim()) {
         return {
           content: [
             {
               type: 'text',
-              text: `No restaurant found for cuisine "${cuisine}". Try italian, japanese, mexican, indian, thai, french, or chinese.`,
+              text: 'Google Maps API is not configured. Set GOOGLE_MAPS_API_KEY in your environment (e.g. in .env) and enable the Geocoding API and Places API (Legacy) in Google Cloud Console.',
             },
           ],
           isError: true,
         };
       }
 
-      // Best = closest (smallest distanceKm), then by rating
+      const coords = await resolveLocation(location, apiKey);
+      if (!coords) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Could not resolve location "${location}". Use a city name, full address, or "lat,lng" (e.g. 52.52,13.405).`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      let restaurants;
+      try {
+        restaurants = await searchRestaurants(
+          cuisine,
+          coords.lat,
+          coords.lng,
+          apiKey
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Failed to search restaurants: ${message}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      if (restaurants.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `No restaurant found for cuisine "${cuisine}" near ${location}. Try a different cuisine or location.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
       const best = [...restaurants].sort(
         (a, b) => a.distanceKm - b.distanceKm || b.rating - a.rating
       )[0];

@@ -12,6 +12,13 @@
  * @see https://modelcontextprotocol.io/docs/develop/transports#stdio
  */
 
+import { config } from 'dotenv';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: resolve(__dirname, '..', '.env') });
+
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createServer } from './server.js';
 

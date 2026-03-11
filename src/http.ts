@@ -12,6 +12,13 @@
  * @see https://modelcontextprotocol.io/docs/develop/transports#streamable-http
  */
 
+import { config } from 'dotenv';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: resolve(__dirname, '..', '.env') });
+
 import express from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createServer } from './server.js';
