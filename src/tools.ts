@@ -682,7 +682,10 @@ function buildTravelAdvisory(conditions: string, distanceKm: number): string {
  * venues and adds a travel advisory.
  */
 function registerMealRecommendationTool(server: McpServer): void {
-  server.registerTool(
+  const resourceUri = 'ui://recommend-meal/mcp-app-meal.html';
+
+  registerAppTool(
+    server,
     'recommend_meal',
     {
       title: 'Recommend Meal',
@@ -712,6 +715,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         rating: z.number(),
         distanceKm: z.number(),
         openNow: z.boolean(),
+        placeId: z.string().optional(),
         openingHours: z.string().optional(),
         weatherConditions: z.string().optional(),
         travelAdvisory: z.string().optional(),
@@ -722,6 +726,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         idempotentHint: false,
         openWorldHint: true,
       },
+      _meta: { ui: { resourceUri } },
     },
     async ({ cuisine, location, hour }, extra) => {
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -870,6 +875,7 @@ function registerMealRecommendationTool(server: McpServer): void {
           rating: best.rating,
           distanceKm: best.distanceKm,
           openNow: best.openNow,
+          placeId: best.placeId || undefined,
           openingHours: schedule,
           weatherConditions: weather?.conditions,
           travelAdvisory: advisory || undefined,
@@ -902,6 +908,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         rating: best.rating,
         distanceKm: best.distanceKm,
         openNow: best.openNow,
+        placeId: best.placeId || undefined,
         weatherConditions: weather?.conditions,
         travelAdvisory: advisory || undefined,
       };
@@ -919,6 +926,19 @@ function registerMealRecommendationTool(server: McpServer): void {
         content: [{ type: 'text', text: lines.join('\n') }],
         structuredContent: recommendation,
       };
-    }
+    },
+  );
+
+  registerAppResource(
+    server,
+    resourceUri,
+    resourceUri,
+    { mimeType: RESOURCE_MIME_TYPE },
+    async () => {
+      const html = await readFile(join(DIST_DIR, 'mcp-app-meal.html'), 'utf-8');
+      return {
+        contents: [{ uri: resourceUri, mimeType: RESOURCE_MIME_TYPE, text: html }],
+      };
+    },
   );
 }
