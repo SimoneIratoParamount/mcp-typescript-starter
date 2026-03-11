@@ -5,7 +5,9 @@
   "type": "module",
   "main": "dist/stdio.js",
   "scripts": {
-    "build": "tsc",
+    "build:ui": "cross-env INPUT=mcp-app.html vite build",
+    "build": "npm run build:ui && tsc",
+    "dev:ui": "cross-env NODE_ENV=development INPUT=mcp-app.html vite build --watch",
     "dev": "tsx watch src/stdio.ts",
     "dev:http": "tsx watch src/http.ts",
     "start:stdio": "node dist/stdio.js",
@@ -26,22 +28,33 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@mcp-ui/client": "^6.1.0",
+    "@mcp-ui/server": "^6.1.0",
+    "@modelcontextprotocol/ext-apps": "^1.2.2",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@types/geoip-lite": "^1.4.4",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "geoip-lite": "^2.0.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "@types/express": "^5.0.6",
     "@types/node": "^25.3.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "cross-env": "^10.1.0",
     "eslint": "^9.0.0",
     "prettier": "^3.8.1",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0",
-    "typescript-eslint": "^8.56.1"
+    "typescript-eslint": "^8.56.1",
+    "vite": "^7.3.1",
+    "vite-plugin-singlefile": "^2.3.0"
   },
   "engines": {
     "node": ">=20.0.0",

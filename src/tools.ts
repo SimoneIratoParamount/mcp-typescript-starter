@@ -39,7 +39,15 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import {
+  registerAppTool,
+  registerAppResource,
+  RESOURCE_MIME_TYPE,
+} from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   resolveLocation,
   searchRestaurants,
@@ -48,7 +56,12 @@ import {
   ipToLatLng,
   geolocateViaGoogle,
 } from './services/google-places.js';
-import { getWeather } from './services/openweather.js';
+import { getWeather, fetchWeatherByCoords, classifyWeather } from './services/openweather.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// When running via tsx (dev), __dirname is src/ — compiled output lives in dist/
+const DIST_DIR = __filename.endsWith('.ts') ? join(__dirname, '..', 'dist') : __dirname;
 
 let bonusToolLoaded = false;
 
@@ -97,10 +110,18 @@ function registerHelloTool(server: McpServer): void {
 }
 
 /**
- * Weather tool backed by OpenWeatherMap.
+ * Weather tool backed by OpenWeatherMap with a React MCP App UI.
+ *
+ * Uses registerAppTool to attach _meta.ui.resourceUri so compatible hosts
+ * (Claude Desktop, ui-inspector, etc.) render the React card automatically.
+ * The tool returns weather as JSON text; the React app (mcp-app.tsx) parses it.
  */
 function registerWeatherTool(server: McpServer): void {
-  server.registerTool(
+  const resourceUri = 'ui://get-weather/mcp-app.html';
+
+  // Register the tool with UI metadata linking it to the React app resource
+  registerAppTool(
+    server,
     'get_weather',
     {
       title: 'Get Weather',
@@ -108,29 +129,17 @@ function registerWeatherTool(server: McpServer): void {
       inputSchema: {
         city: z.string().describe('City or location name (e.g. "Berlin", "Tokyo, JP")'),
       },
-      outputSchema: {
-        location: z.string(),
-        temperature: z.number(),
-        unit: z.string(),
-        conditions: z.string(),
-        humidity: z.number(),
-        windSpeed: z.number(),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: true,
-      },
+      _meta: { ui: { resourceUri } },
     },
     async ({ city }) => {
       const apiKey = process.env.OPEN_WEATHER_API_KEY;
+
       if (!apiKey?.trim()) {
         return {
           content: [
             {
               type: 'text',
-              text: 'OpenWeatherMap API is not configured. Set OPEN_WEATHER_API_KEY in your .env file. Get a free key at https://openweathermap.org/api',
+              text: 'OpenWeatherMap API is not configured. Set OPEN_WEATHER_API_KEY in your .env file.',
             },
           ],
           isError: true,
@@ -139,17 +148,11 @@ function registerWeatherTool(server: McpServer): void {
 
       try {
         const weather = await getWeather(city, apiKey);
-
-        const text = [
-          `**Weather in ${weather.location}**`,
-          `Temperature: ${weather.temperature}°C`,
-          `Conditions: ${weather.conditions}`,
-          `Humidity: ${weather.humidity}%`,
-          `Wind speed: ${weather.windSpeed} m/s`,
-        ].join('\n');
-
+        const summary =
+          `${weather.location}: ${weather.temperature}°C, ${weather.conditions}. ` +
+          `Humidity ${weather.humidity}%, wind ${weather.windSpeed} m/s.`;
         return {
-          content: [{ type: 'text', text }],
+          content: [{ type: 'text', text: summary }],
           structuredContent: weather as unknown as Record<string, unknown>,
         };
       } catch (err) {
@@ -159,6 +162,20 @@ function registerWeatherTool(server: McpServer): void {
           isError: true,
         };
       }
+    }
+  );
+
+  // Register the bundled React app HTML as an MCP resource
+  registerAppResource(
+    server,
+    resourceUri,
+    resourceUri,
+    { mimeType: RESOURCE_MIME_TYPE },
+    async () => {
+      const html = await readFile(join(DIST_DIR, 'mcp-app.html'), 'utf-8');
+      return {
+        contents: [{ uri: resourceUri, mimeType: RESOURCE_MIME_TYPE, text: html }],
+      };
     }
   );
 }
@@ -633,20 +650,46 @@ function registerTickleMindTool(server: McpServer): void {
 }
 
 // =============================================================================
-// Meal recommendation – restaurant by cuisine (Google Maps Places API)
+// Meal recommendation – restaurant by cuisine (Google Maps + weather-aware)
 // =============================================================================
+
+/** Build a travel advisory based on weather and distance. */
+function buildTravelAdvisory(conditions: string, distanceKm: number): string {
+  const severity = classifyWeather(conditions);
+  if (severity === 'good') return '';
+
+  const lines: string[] = [`⚠️ Current weather: ${conditions}.`];
+
+  if (distanceKm <= 0.3) {
+    lines.push('The restaurant is very close — a short walk with an umbrella should be fine.');
+  } else if (distanceKm <= 1.0) {
+    lines.push('Consider bringing an umbrella or checking if there are covered walkways nearby.');
+  } else {
+    lines.push(
+      'The restaurant is a fair distance away in bad weather. Recommended options:',
+      '  • 🚇 Public transport (metro, tram, bus) — check local transit apps',
+      '  • 🚕 Taxi or rideshare (Uber, Bolt, local cabs)',
+      '  • 🏙️ Look for covered shopping-arcade or underground passages on the way'
+    );
+  }
+
+  return lines.join('\n');
+}
 
 /**
  * Meal recommendation tool: find a restaurant matching the given cuisine near
- * the given location. Uses Google Maps Geocoding and Places API (Legacy) for
- * real-world data. Requires GOOGLE_MAPS_API_KEY in the environment.
+ * the given location. Weather-aware: in bad conditions it prioritises nearby
+ * venues and adds a travel advisory.
  */
 function registerMealRecommendationTool(server: McpServer): void {
   server.registerTool(
     'recommend_meal',
     {
       title: 'Recommend Meal',
-      description: `Find a restaurant matching the given cuisine near the given location. Uses Google Maps for real-world results. Provide a city name, address, or "lat,lng" coordinates. Strongly advised passing an hour argument (HH:MM) to filter by places open at that time.`,
+      description:
+        'Find a restaurant matching the given cuisine near the given location. ' +
+        'Weather-aware: fetches current conditions and adjusts the pick and travel advice accordingly. ' +
+        'Optionally pass an hour (HH:MM) to filter by places open at that time.',
       inputSchema: {
         cuisine: z.string().describe('Type of cuisine (e.g. italian, japanese, mexican, thai)'),
         location: z
@@ -659,7 +702,7 @@ function registerMealRecommendationTool(server: McpServer): void {
           .string()
           .optional()
           .describe(
-            'Time to check availability (HH:MM 24h format, e.g. "10:00", "14:30"). Omit to just check if open right now.'
+            'Time to check availability (HH:MM 24h, e.g. "14:30"). Omit to use open-now status.'
           ),
       },
       outputSchema: {
@@ -670,6 +713,8 @@ function registerMealRecommendationTool(server: McpServer): void {
         distanceKm: z.number(),
         openNow: z.boolean(),
         openingHours: z.string().optional(),
+        weatherConditions: z.string().optional(),
+        travelAdvisory: z.string().optional(),
       },
       annotations: {
         readOnlyHint: true,
@@ -685,7 +730,7 @@ function registerMealRecommendationTool(server: McpServer): void {
           content: [
             {
               type: 'text',
-              text: 'Google Maps API is not configured. Set GOOGLE_MAPS_API_KEY in your environment (e.g. in .env) and enable the Geocoding API and Places API (Legacy) in Google Cloud Console.',
+              text: 'Google Maps API is not configured. Set GOOGLE_MAPS_API_KEY in your .env.',
             },
           ],
           isError: true,
@@ -699,9 +744,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         const extraTyped = extra as ExtraMetadata;
         const headers = extraTyped.requestInfo?.headers;
         const ip =
-          (headers?.['x-client-ip'] as string) ||
-          (headers?.['x-forwarded-for'] as string) ||
-          '';
+          (headers?.['x-client-ip'] as string) || (headers?.['x-forwarded-for'] as string) || '';
 
         if (ip) {
           coords = ipToLatLng(ip);
@@ -724,39 +767,56 @@ function registerMealRecommendationTool(server: McpServer): void {
         };
       }
 
-      let restaurants;
-      try {
-        restaurants = await searchRestaurants(cuisine, coords.lat, coords.lng, apiKey);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+      // Fetch restaurants and weather in parallel
+      const weatherKey = process.env.OPEN_WEATHER_API_KEY;
+      const [restaurantResult, weatherResult] = await Promise.allSettled([
+        searchRestaurants(cuisine, coords.lat, coords.lng, apiKey),
+        weatherKey?.trim()
+          ? fetchWeatherByCoords(
+              coords.lat,
+              coords.lng,
+              location ?? '' /* fallback to google fn to get location from coords */,
+              weatherKey
+            )
+          : Promise.reject(new Error('no key')),
+      ]);
+
+      if (restaurantResult.status === 'rejected') {
+        const message =
+          restaurantResult.reason instanceof Error
+            ? restaurantResult.reason.message
+            : String(restaurantResult.reason);
         return {
-          content: [
-            {
-              type: 'text',
-              text: `Failed to search restaurants: ${message}`,
-            },
-          ],
+          content: [{ type: 'text', text: `Failed to search restaurants: ${message}` }],
           isError: true,
         };
       }
 
+      const restaurants = restaurantResult.value;
       if (restaurants.length === 0) {
         return {
           content: [
             {
               type: 'text',
-              text: `No restaurant found for cuisine "${cuisine}" near ${location}. Try a different cuisine or location.`,
+              text: `No restaurant found for cuisine "${cuisine}" near ${location}.`,
             },
           ],
           isError: true,
         };
       }
 
-      const sorted = [...restaurants].sort(
-        (a, b) => a.distanceKm - b.distanceKm || b.rating - a.rating
+      // Weather context (optional — silently ignored if key missing or call fails)
+      const weather = weatherResult.status === 'fulfilled' ? weatherResult.value : null;
+      const weatherSeverity = weather ? classifyWeather(weather.conditions) : 'good';
+
+      // Sort strategy: bad weather → minimise distance; good weather → distance then rating
+      const sorted = [...restaurants].sort((a, b) =>
+        weatherSeverity === 'bad'
+          ? a.distanceKm - b.distanceKm
+          : a.distanceKm - b.distanceKm || b.rating - a.rating
       );
 
-      // --- Path 2: hour specified → fetch Place Details and filter ---
+      // --- Path with hour filter ---
       if (hour) {
         const match = hour.match(/^(\d{1,2}):(\d{2})$/);
         if (!match) {
@@ -764,14 +824,14 @@ function registerMealRecommendationTool(server: McpServer): void {
             content: [
               {
                 type: 'text',
-                text: `Invalid hour format "${hour}". Use HH:MM in 24h format (e.g. "10:00", "14:30").`,
+                text: `Invalid hour format "${hour}". Use HH:MM in 24h format (e.g. "14:30").`,
               },
             ],
             isError: true,
           };
         }
         const hhmm = match[1].padStart(2, '0') + match[2];
-        const dayOfWeek = new Date().getDay(); // 0=Sun … 6=Sat
+        const dayOfWeek = new Date().getDay();
 
         const top = sorted.slice(0, 5);
         const detailResults = await Promise.all(
@@ -791,7 +851,7 @@ function registerMealRecommendationTool(server: McpServer): void {
             content: [
               {
                 type: 'text',
-                text: `No ${cuisine} restaurant found open at ${hour} near ${location}. Try a different time or cuisine.`,
+                text: `No ${cuisine} restaurant found open at ${hour} near ${location}.`,
               },
             ],
             isError: true,
@@ -801,6 +861,7 @@ function registerMealRecommendationTool(server: McpServer): void {
         const pick = openAtHour[0];
         const best = pick.restaurant;
         const schedule = pick.hours!.weekdayText.join('\n');
+        const advisory = weather ? buildTravelAdvisory(weather.conditions, best.distanceKm) : '';
 
         const recommendation = {
           name: best.name,
@@ -810,25 +871,29 @@ function registerMealRecommendationTool(server: McpServer): void {
           distanceKm: best.distanceKm,
           openNow: best.openNow,
           openingHours: schedule,
+          weatherConditions: weather?.conditions,
+          travelAdvisory: advisory || undefined,
         };
 
-        const text = [
-          `**Best ${cuisine} pick open at ${hour}:** ${recommendation.name}`,
-          `Cuisine: ${recommendation.cuisine}`,
-          `Address: ${recommendation.address}`,
-          `Rating: ${recommendation.rating}/5 · ${recommendation.distanceKm} km away`,
-          `Open now: ${recommendation.openNow ? 'Yes' : 'No'}`,
+        const lines = [
+          `**Best ${cuisine} pick open at ${hour}:** ${best.name}`,
+          `Address: ${best.address}`,
+          `Rating: ${best.rating}/5 · ${best.distanceKm} km away`,
+          `Open now: ${best.openNow ? 'Yes' : 'No'}`,
           `Opening hours:\n${schedule}`,
-        ].join('\n');
+        ];
+        if (weather) lines.push(`\nWeather: ${weather.temperature}°C, ${weather.conditions}`);
+        if (advisory) lines.push(advisory);
 
         return {
-          content: [{ type: 'text', text }],
+          content: [{ type: 'text', text: lines.join('\n') }],
           structuredContent: recommendation,
         };
       }
 
-      // --- Path 1: no hour → return best result with openNow ---
+      // --- Default path: no hour filter ---
       const best = sorted[0];
+      const advisory = weather ? buildTravelAdvisory(weather.conditions, best.distanceKm) : '';
 
       const recommendation = {
         name: best.name,
@@ -837,18 +902,21 @@ function registerMealRecommendationTool(server: McpServer): void {
         rating: best.rating,
         distanceKm: best.distanceKm,
         openNow: best.openNow,
+        weatherConditions: weather?.conditions,
+        travelAdvisory: advisory || undefined,
       };
 
-      const text = [
-        `**Best ${cuisine} pick near you:** ${recommendation.name}`,
-        `Cuisine: ${recommendation.cuisine}`,
-        `Address: ${recommendation.address}`,
-        `Rating: ${recommendation.rating}/5 · ${recommendation.distanceKm} km away`,
-        `Open now: ${recommendation.openNow ? 'Yes' : 'No'}`,
-      ].join('\n');
+      const lines = [
+        `**Best ${cuisine} pick near you:** ${best.name}`,
+        `Address: ${best.address}`,
+        `Rating: ${best.rating}/5 · ${best.distanceKm} km away`,
+        `Open now: ${best.openNow ? 'Yes' : 'No'}`,
+      ];
+      if (weather) lines.push(`\nWeather: ${weather.temperature}°C, ${weather.conditions}`);
+      if (advisory) lines.push(advisory);
 
       return {
-        content: [{ type: 'text', text }],
+        content: [{ type: 'text', text: lines.join('\n') }],
         structuredContent: recommendation,
       };
     }

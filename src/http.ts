@@ -22,6 +22,8 @@ config({ path: resolve(__dirname, '..', '.env') });
 import express from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createServer } from './server.js';
+import { getWeather } from './services/openweather.js';
+import { buildWeatherHtml } from './services/weather-ui.js';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
@@ -30,6 +32,39 @@ async function main() {
 
   // Parse JSON bodies
   app.use(express.json());
+
+  // Serve @mcp-ui/client Web Component and public demo files
+  app.use('/mcp-ui', express.static(new URL('../node_modules/@mcp-ui/client/dist', import.meta.url).pathname));
+  app.use(express.static(new URL('../public', import.meta.url).pathname));
+
+  /**
+   * Weather UI demo endpoint — returns a UIResource (text/html) ready for
+   * <ui-resource-renderer> to render.
+   */
+  app.get('/api/weather', async (req, res) => {
+    const city = typeof req.query.city === 'string' ? req.query.city.trim() : '';
+    if (!city) {
+      res.status(400).json({ error: 'city query parameter is required' });
+      return;
+    }
+    const apiKey = process.env.OPEN_WEATHER_API_KEY;
+    if (!apiKey?.trim()) {
+      res.status(503).json({ error: 'OPEN_WEATHER_API_KEY not configured' });
+      return;
+    }
+    try {
+      const weather = await getWeather(city, apiKey);
+      const html = buildWeatherHtml(weather);
+      res.json({
+        uri: `ui://weather/${encodeURIComponent(weather.location)}`,
+        mimeType: 'text/html',
+        text: html,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: message });
+    }
+  });
 
   // Store transports for session management
   const transports = new Map<string, StreamableHTTPServerTransport>();
@@ -119,8 +154,9 @@ async function main() {
 
   app.listen(PORT, () => {
     console.log(`MCP TypeScript Starter running on http://localhost:${PORT}`);
-    console.log(`  MCP endpoint: http://localhost:${PORT}/mcp`);
-    console.log(`  Health check: http://localhost:${PORT}/health`);
+    console.log(`  MCP endpoint:   http://localhost:${PORT}/mcp`);
+    console.log(`  Health check:   http://localhost:${PORT}/health`);
+    console.log(`  Weather UI demo: http://localhost:${PORT}/`);
     console.log('');
     console.log('Press Ctrl+C to exit');
   });

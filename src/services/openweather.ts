@@ -62,10 +62,21 @@ interface OWMWeatherResponse {
 }
 
 /**
+ * Classify whether conditions are weather-adverse (rain, storm, snow, fog…).
+ */
+export type WeatherSeverity = 'good' | 'bad';
+
+export function classifyWeather(conditions: string): WeatherSeverity {
+  const bad = ['rain', 'drizzle', 'storm', 'thunder', 'snow', 'sleet', 'blizzard', 'hail', 'fog', 'mist'];
+  const lower = conditions.toLowerCase();
+  return bad.some((w) => lower.includes(w)) ? 'bad' : 'good';
+}
+
+/**
  * Fetch current weather from OWM using coordinates.
  * Units are metric (°C, m/s).
  */
-async function fetchWeather(
+export async function fetchWeatherByCoords(
   lat: number,
   lon: number,
   locationLabel: string,
@@ -110,5 +121,5 @@ export async function getWeather(
       `Could not find location "${location}". Try a city name like "Berlin" or "Tokyo, JP".`
     );
   }
-  return fetchWeather(coords.lat, coords.lon, coords.label, apiKey);
+  return fetchWeatherByCoords(coords.lat, coords.lon, coords.label, apiKey);
 }

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather — MCP-UI Demo</title>
+
+  <!-- @mcp-ui/client Web Component -->
+  <script src="/mcp-ui/ui-resource-renderer.wc.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e8eaf0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: #fff;
+    }
+
+    h1 span { color: #60a5fa; }
+
+    .search {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 340px;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #2e3340;
+      border-radius: 10px;
+      background: #1a1d27;
+      color: #e8eaf0;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus { border-color: #60a5fa; }
+    input::placeholder { color: #4b5268; }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    button:hover { background: #1d4ed8; }
+    button:disabled { background: #334155; cursor: default; }
+
+    #error {
+      color: #f87171;
+      font-size: 14px;
+      min-height: 20px;
+    }
+
+    /* The card lives inside the web component's iframe — we size the host here */
+    ui-resource-renderer {
+      display: block;
+      width: 340px;
+      height: 380px;
+      border-radius: 28px;
+      overflow: hidden;
+    }
+
+    ui-resource-renderer:not([resource]) { display: none; }
+  </style>
+</head>
+<body>
+
+  <h1>Weather <span>MCP-UI</span> Demo</h1>
+
+  <div class="search">
+    <input id="city" type="text" placeholder="City name (e.g. Berlin)" autofocus>
+    <button id="btn" onclick="fetchWeather()">Get Weather</button>
+  </div>
+
+  <div id="error"></div>
+
+  <!--
+    @mcp-ui/client Web Component.
+    Setting the `resource` attribute triggers rendering inside a sandboxed iframe.
+  -->
+  <ui-resource-renderer id="renderer"></ui-resource-renderer>
+
+  <script>
+    const input  = document.getElementById('city');
+    const btn    = document.getElementById('btn');
+    const errDiv = document.getElementById('error');
+    const rdr    = document.getElementById('renderer');
+
+    // Allow Enter key
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchWeather(); });
+
+    // Handle tool-call actions fired by the card's Refresh button
+    rdr.addEventListener('onUIAction', (e) => {
+      const action = e.detail;
+      if (action?.type === 'tool' && action?.payload?.toolName === 'get_weather') {
+        const city = action.payload.params?.city;
+        if (city) {
+          input.value = city;
+          fetchWeather();
+        }
+      }
+    });
+
+    async function fetchWeather() {
+      const city = input.value.trim();
+      if (!city) return;
+
+      btn.disabled = true;
+      errDiv.textContent = '';
+
+      try {
+        const res  = await fetch(`/api/weather?city=${encodeURIComponent(city)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          errDiv.textContent = data.error ?? 'Unknown error';
+          return;
+        }
+
+        // Pass the UIResource object to the web component
+        rdr.setAttribute('resource', JSON.stringify(data));
+      } catch (err) {
+        errDiv.textContent = err.message ?? 'Network error';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+
+</body>
+</html>
