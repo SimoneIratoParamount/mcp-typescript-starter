@@ -55,6 +55,7 @@ export function registerTools(server: McpServer): void {
   registerConfirmActionTool(server);
   registerGetFeedbackTool(server);
   registerTickleMindTool(server);
+  registerMealRecommendationTool(server);
 }
 
 /**
@@ -590,6 +591,94 @@ function registerTickleMindTool(server: McpServer): void {
           content: [{ type: 'text', text: transportMessage }],
         };
       }
+    }
+  );
+}
+
+// =============================================================================
+// Meal recommendation – restaurant by cuisine near user
+// =============================================================================
+
+/** Mock restaurant names by cuisine for simulation. */
+const MOCK_RESTAURANTS: Record<string, string[]> = {
+  italian: ['Trattoria Roma', 'La Dolce Vita', 'Osteria del Centro', 'Pasta e Basta'],
+  japanese: ['Sakura Sushi', 'Tokyo Kitchen', 'Zen Ramen', 'Fuji House'],
+  mexican: ['El Mariachi', 'Casa de Tacos', 'Sabor Mexicano', 'La Cantina'],
+  indian: ['Taj Palace', 'Spice Route', 'Curry House', 'Bombay Bites'],
+  thai: ['Bangkok Garden', 'Thai Orchid', 'Siam Kitchen', 'Lotus Thai'],
+  french: ['Le Petit Bistro', 'Chez Pierre', 'La Maison', 'Bistro Paris'],
+  chinese: ['Dragon Wok', 'Golden Dragon', 'Panda House', 'Jade Garden'],
+  default: ['The Local Table', 'Neighborhood Kitchen', 'Downtown Eats', 'Corner Bistro'],
+};
+
+/**
+ * Meal recommendation tool: find the best restaurant for a cuisine near the user.
+ * Requires the user's position (latitude/longitude). In production, wire to a
+ * places API (e.g. Google Places, Yelp).
+ */
+function registerMealRecommendationTool(server: McpServer): void {
+  server.registerTool(
+    'recommend_meal',
+    {
+      title: 'Recommend Meal',
+      description: `Find the best restaurant matching the given cuisine near the user's location. Requires the user's position (latitude and longitude). Ask for the user's location or use device location if available before calling.`,
+      inputSchema: {
+        cuisine: z.string().describe('Type of cuisine (e.g. italian, japanese, mexican, thai)'),
+        latitude: z
+          .union([z.string(), z.number()])
+          .describe('User latitude as number or string (e.g. from device or address)'),
+        longitude: z
+          .union([z.string(), z.number()])
+          .describe('User longitude as number or string (e.g. from device or address)'),
+      },
+      outputSchema: {
+        name: z.string(),
+        cuisine: z.string(),
+        address: z.string(),
+        rating: z.number(),
+        distanceKm: z.number(),
+        openingHours: z.string(),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true, // Would call external places API in production
+      },
+    },
+    async ({ cuisine, latitude, longitude }) => {
+      const lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
+      const lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+
+      const key = cuisine.toLowerCase().replace(/\s+/g, '_');
+      const names = MOCK_RESTAURANTS[key] ?? MOCK_RESTAURANTS.default;
+      const name = names[Math.floor(Math.random() * names.length)];
+
+      // Simulate distance from user (0.2–2.5 km) and rating (3.8–4.9)
+      const distanceKm = Math.round((0.2 + Math.random() * 2.3) * 10) / 10;
+      const rating = Math.round((3.8 + Math.random() * 1.1) * 10) / 10;
+
+      const recommendation = {
+        name,
+        cuisine: cuisine.trim(),
+        address: `${Math.round(lat * 100) / 100}°N, ${Math.round(lng * 100) / 100}°W — simulated address near you`,
+        rating,
+        distanceKm,
+        openingHours: '11:00 – 23:00',
+      };
+
+      const text = [
+        `**Best ${cuisine} pick near you:** ${recommendation.name}`,
+        `Cuisine: ${recommendation.cuisine}`,
+        `Address: ${recommendation.address}`,
+        `Rating: ${recommendation.rating}/5 · ${recommendation.distanceKm} km away`,
+        `Hours: ${recommendation.openingHours}`,
+      ].join('\n');
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: recommendation,
+      };
     }
   );
 }
