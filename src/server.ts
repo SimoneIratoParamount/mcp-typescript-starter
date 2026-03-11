@@ -26,7 +26,7 @@ A demonstration MCP server showcasing TypeScript SDK capabilities.
 ## Recommended Workflows
 
 1. **Test connectivity** → Call \`hello\` to verify the server responds
-2. **Structured output** → Call \`get_weather\` to see typed response data
+2. **Structured output** → Call \`get_weather\` with an optional city to see real weather data; omit city to auto-detect location from IP
 3. **Progress reporting** → Call \`long_task\` to observe real-time progress notifications
 4. **Dynamic tools** → Call \`load_bonus_tool\`, then re-list tools to see \`bonus_calculator\` appear
 5. **LLM sampling** → Call \`ask_llm\` to have the server request a completion from the client

@@ -214,6 +214,7 @@ cp .env.example .env
 |----------|-------------|---------|
 | `PORT` | HTTP server port | `3000` |
 | `GOOGLE_MAPS_API_KEY` | Google Maps API key for `recommend_meal` (Geocoding + Places API Legacy) | — |
+| `OPEN_WEATHER_API_KEY` | OpenWeatherMap API key for `get_weather` (free at openweathermap.org) | — |
 
 ## 🤝 Contributing
 

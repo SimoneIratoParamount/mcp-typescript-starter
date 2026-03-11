@@ -128,6 +128,7 @@ npm test
 
 - `PORT` - HTTP server port (default: 3000)
 - `GOOGLE_MAPS_API_KEY` - API key for Google Maps (Geocoding + Places API Legacy); required by `recommend_meal`
+- `OPEN_WEATHER_API_KEY` - API key for Open Weather Maps; required by `get_weather`
 
 ## Conventions
 

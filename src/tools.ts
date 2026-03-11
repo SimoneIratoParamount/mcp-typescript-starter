@@ -46,6 +46,7 @@ import {
   getPlaceOpeningHours,
   isOpenAtHour,
 } from './services/google-places.js';
+import { getWeather } from './services/openweather.js';
 
 let bonusToolLoaded = false;
 
@@ -90,16 +91,16 @@ function registerHelloTool(server: McpServer): void {
 }
 
 /**
- * Weather tool with structured output.
+ * Weather tool backed by OpenWeatherMap.
  */
 function registerWeatherTool(server: McpServer): void {
   server.registerTool(
     'get_weather',
     {
       title: 'Get Weather',
-      description: 'Get the current weather for a city',
+      description: 'Get the current weather for a city or location name.',
       inputSchema: {
-        city: z.string().describe('City name to get weather for'),
+        city: z.string().describe('City or location name (e.g. "Berlin", "Tokyo, JP")'),
       },
       outputSchema: {
         location: z.string(),
@@ -107,27 +108,51 @@ function registerWeatherTool(server: McpServer): void {
         unit: z.string(),
         conditions: z.string(),
         humidity: z.number(),
+        windSpeed: z.number(),
       },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
-        idempotentHint: false, // Results vary due to simulation
-        openWorldHint: false, // Simulated, not real external calls
+        idempotentHint: false,
+        openWorldHint: true,
       },
     },
     async ({ city }) => {
-      const weather = {
-        location: city,
-        temperature: Math.round(15 + Math.random() * 20),
-        unit: 'celsius',
-        conditions: ['sunny', 'cloudy', 'rainy', 'windy'][Math.floor(Math.random() * 4)],
-        humidity: Math.round(40 + Math.random() * 40),
-      };
+      const apiKey = process.env.OPEN_WEATHER_API_KEY;
+      if (!apiKey?.trim()) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'OpenWeatherMap API is not configured. Set OPEN_WEATHER_API_KEY in your .env file. Get a free key at https://openweathermap.org/api',
+            },
+          ],
+          isError: true,
+        };
+      }
 
-      return {
-        content: [{ type: 'text', text: JSON.stringify(weather, null, 2) }],
-        structuredContent: weather,
-      };
+      try {
+        const weather = await getWeather(city, apiKey);
+
+        const text = [
+          `**Weather in ${weather.location}**`,
+          `Temperature: ${weather.temperature}°C`,
+          `Conditions: ${weather.conditions}`,
+          `Humidity: ${weather.humidity}%`,
+          `Wind speed: ${weather.windSpeed} m/s`,
+        ].join('\n');
+
+        return {
+          content: [{ type: 'text', text }],
+          structuredContent: weather as unknown as Record<string, unknown>,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: 'text', text: `Failed to get weather: ${message}` }],
+          isError: true,
+        };
+      }
     }
   );
 }
