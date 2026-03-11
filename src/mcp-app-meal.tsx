@@ -101,6 +101,42 @@ function getWeatherTheme(conditions: string): { emoji: string; gradient: string 
 }
 
 // ---------------------------------------------------------------------------
+// Browser geolocation hook — GPS-level precision (~1-10 m)
+// ---------------------------------------------------------------------------
+
+type LocationSource = 'gps' | 'approximate' | 'pending';
+
+interface BrowserLocation {
+  coords: { lat: number; lng: number } | null;
+  source: LocationSource;
+}
+
+function useBrowserLocation(): BrowserLocation {
+  const [state, setState] = useState<BrowserLocation>({
+    coords: null,
+    source: 'pending',
+  });
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setState({ coords: null, source: 'approximate' });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        setState({
+          coords: { lat: pos.coords.latitude, lng: pos.coords.longitude },
+          source: 'gps',
+        }),
+      () => setState({ coords: null, source: 'approximate' }),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
+
+  return state;
+}
+
+// ---------------------------------------------------------------------------
 // Rush hour logic (heuristic — no API needed)
 // ---------------------------------------------------------------------------
 
@@ -619,6 +655,7 @@ function MealApp() {
   const [data, setData] = useState<MealData | null>(null);
   const [inputArgs, setInputArgs] = useState<InputArgs>({});
   const [refreshing, setRefreshing] = useState(false);
+  const browserLocation = useBrowserLocation();
 
   const { app, error } = useApp({
     appInfo: { name: 'Meal Recommendation App', version: '2.0.0' },
@@ -642,9 +679,13 @@ function MealApp() {
     if (!app || !inputArgs.cuisine) return;
     setRefreshing(true);
     try {
+      const args = { ...inputArgs };
+      if (browserLocation.coords && !args.location) {
+        args.location = `${browserLocation.coords.lat},${browserLocation.coords.lng}`;
+      }
       const result = await app.callServerTool({
         name: 'recommend_meal',
-        arguments: { ...inputArgs },
+        arguments: args,
       });
       const parsed = parseMealData(result);
       if (parsed) setData(parsed);
@@ -653,7 +694,7 @@ function MealApp() {
     } finally {
       setRefreshing(false);
     }
-  }, [app, inputArgs]);
+  }, [app, inputArgs, browserLocation.coords]);
 
   useEffect(() => {
     if (!app) return;
@@ -689,16 +730,27 @@ function MealApp() {
     >
       {data.weather && <WeatherCard w={data.weather} />}
       <Carousel recommendations={data.recommendations} app={app} />
-      {inputArgs.cuisine && (
-        <button
-          className="btn btn-secondary"
-          style={{ marginTop: 4 }}
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? 'Searching…' : '🔄 Search again'}
-        </button>
-      )}
+
+      {/* Location source + actions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+        <span className={`location-badge ${browserLocation.source}`}>
+          <span className="location-dot" />
+          {browserLocation.source === 'gps'
+            ? 'Precise location'
+            : browserLocation.source === 'pending'
+              ? 'Locating…'
+              : 'Approximate location'}
+        </span>
+        {inputArgs.cuisine && (
+          <button
+            className="btn btn-secondary"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Searching…' : '🔄 Search again'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

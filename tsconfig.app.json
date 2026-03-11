@@ -11,7 +11,8 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "composite": true
   },
   "include": ["src/mcp-app.tsx", "src/mcp-app-meal.tsx", "mcp-app.html", "mcp-app-meal.html"]
 }

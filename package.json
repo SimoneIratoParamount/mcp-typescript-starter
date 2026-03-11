@@ -6,7 +6,7 @@
   "main": "dist/stdio.js",
   "scripts": {
     "build:ui": "cross-env INPUT=mcp-app.html vite build && cross-env INPUT=mcp-app-meal.html vite build",
-    "build": "npm run build:ui && tsc",
+    "build": "npm run build:ui && tsc -p tsconfig.server.json",
     "dev:ui": "cross-env NODE_ENV=development INPUT=mcp-app.html vite build --watch",
     "dev": "tsx watch src/stdio.ts",
     "dev:http": "tsx watch src/http.ts",
