@@ -719,6 +719,15 @@ function registerMealRecommendationTool(server: McpServer): void {
         openingHours: z.string().optional(),
         weatherConditions: z.string().optional(),
         travelAdvisory: z.string().optional(),
+        weather: z
+          .object({
+            location: z.string(),
+            temperature: z.number(),
+            conditions: z.string(),
+            humidity: z.number(),
+            windSpeed: z.number(),
+          })
+          .optional(),
       },
       annotations: {
         readOnlyHint: true,
@@ -879,6 +888,15 @@ function registerMealRecommendationTool(server: McpServer): void {
           openingHours: schedule,
           weatherConditions: weather?.conditions,
           travelAdvisory: advisory || undefined,
+          weather: weather
+            ? {
+                location: weather.location,
+                temperature: weather.temperature,
+                conditions: weather.conditions,
+                humidity: weather.humidity,
+                windSpeed: weather.windSpeed,
+              }
+            : undefined,
         };
 
         const lines = [
@@ -911,6 +929,15 @@ function registerMealRecommendationTool(server: McpServer): void {
         placeId: best.placeId || undefined,
         weatherConditions: weather?.conditions,
         travelAdvisory: advisory || undefined,
+        weather: weather
+          ? {
+              location: weather.location,
+              temperature: weather.temperature,
+              conditions: weather.conditions,
+              humidity: weather.humidity,
+              windSpeed: weather.windSpeed,
+            }
+          : undefined,
       };
 
       const lines = [
