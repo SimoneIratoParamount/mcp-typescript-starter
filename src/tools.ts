@@ -46,14 +46,14 @@ import {
   getPlaceOpeningHours,
   isOpenAtHour,
   ipToLatLng,
+  geolocateViaGoogle,
 } from './services/google-places.js';
 import { getWeather } from './services/openweather.js';
 
 let bonusToolLoaded = false;
 
 interface ExtraMetadata {
-  request?: { body?: { metadata?: { clientIp?: string } } };
-  message?: { metadata?: { clientIp?: string } };
+  requestInfo?: { headers?: Record<string, string | string[] | undefined> };
 }
 
 /**
@@ -693,27 +693,22 @@ function registerMealRecommendationTool(server: McpServer): void {
       }
 
       let coords: { lat: number; lng: number } | null = null;
-
       if (location?.trim()) {
         coords = await resolveLocation(location, apiKey);
       } else {
-        // inspect the `extra` object to see what metadata the transport attached
         const extraTyped = extra as ExtraMetadata;
-        // try a few plausible places where the clientIp might live
+        const headers = extraTyped.requestInfo?.headers;
         const ip =
-          (extraTyped.request?.body?.metadata?.clientIp as string) ||
-          (extraTyped.message?.metadata?.clientIp as string) ||
+          (headers?.['x-client-ip'] as string) ||
+          (headers?.['x-forwarded-for'] as string) ||
           '';
 
-        console.log('[recommend_meal] client IP fallback:', JSON.stringify(extra));
-
         if (ip) {
-          console.log('[recommend_meal] client IP fallback:', ip);
-          try {
-            coords = ipToLatLng(ip);
-          } catch (e) {
-            console.warn('[recommend_meal] failed to convert IP to coords', e);
-          }
+          coords = ipToLatLng(ip);
+        }
+
+        if (!coords) {
+          coords = await geolocateViaGoogle(apiKey);
         }
       }
 
@@ -722,7 +717,7 @@ function registerMealRecommendationTool(server: McpServer): void {
           content: [
             {
               type: 'text',
-              text: `Could not resolve location "${location}". Use a city name, full address, or "lat,lng" (e.g. 52.52,13.405).`,
+              text: `Could not determine your location. Please provide a city name, full address, or "lat,lng" (e.g. 52.52,13.405).`,
             },
           ],
           isError: true,

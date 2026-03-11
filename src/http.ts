@@ -77,8 +77,7 @@ async function main() {
         await server.connect(transport);
       }
 
-      req.body.metadata = req.body.metadata ?? {};
-      req.body.metadata.clientIp = req.ip || req.headers['x-forwarded-for'] || '';
+      req.headers['x-client-ip'] = (req.ip || (req.headers['x-forwarded-for'] as string) || '') as string;
 
       await transport.handleRequest(req, res, req.body);
 

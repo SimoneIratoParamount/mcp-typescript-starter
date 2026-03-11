@@ -134,6 +134,35 @@ export function ipToLatLng(ip: string): { lat: number; lng: number } | null {
   return null;
 }
 
+interface GeolocationResponse {
+  location?: { lat: number; lng: number };
+  accuracy?: number;
+  error?: { message: string };
+}
+
+/**
+ * Use Google Maps Geolocation API to estimate position from the server's IP.
+ * Useful as a last-resort fallback when the client IP can't be resolved
+ * offline (e.g. loopback addresses during local development).
+ */
+export async function geolocateViaGoogle(
+  apiKey: string
+): Promise<{ lat: number; lng: number } | null> {
+  const url = `https://www.googleapis.com/geolocation/v1/geolocate?key=${encodeURIComponent(apiKey)}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ considerIp: true }),
+  });
+
+  const data = (await res.json()) as GeolocationResponse;
+  if (data.location?.lat != null && data.location?.lng != null) {
+    return { lat: data.location.lat, lng: data.location.lng };
+  }
+  return null;
+}
+
 /**
  * Resolve location string to lat/lng: either "lat,lng" or geocode the address.
  */
