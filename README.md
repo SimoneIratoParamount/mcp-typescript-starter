@@ -147,8 +147,6 @@ Then configure your client to connect via HTTP:
 .
 ├── src/
 │   ├── tools.ts            # All tool definitions
-│   ├── resources.ts        # Resource and template definitions
-│   ├── prompts.ts          # Prompt definitions
 │   ├── server.ts           # Server orchestration
 │   ├── stdio.ts            # stdio transport entrypoint
 │   ├── http.ts             # HTTP transport entrypoint
