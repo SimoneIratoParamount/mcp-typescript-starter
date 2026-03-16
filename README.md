@@ -1,225 +1,240 @@
-# MCP TypeScript Starter
+# Meal Planner MCP Server
 
-[![CI](https://github.com/SamMorrowDrums/mcp-typescript-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/SamMorrowDrums/mcp-typescript-starter/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple)](https://modelcontextprotocol.io/)
 
-A feature-complete Model Context Protocol (MCP) server template in TypeScript. This starter demonstrates all major MCP features with clean, production-ready code.
+A [Model Context Protocol](https://modelcontextprotocol.io/) server that recommends restaurants based on cuisine preferences, location, weather conditions, and hunger level. Built on top of the [mcp-typescript-starter](https://github.com/SamMorrowDrums/mcp-typescript-starter) template.
 
-## 📚 Documentation
+## What It Does
 
-- [Model Context Protocol](https://modelcontextprotocol.io/)
-- [TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
-- [Building MCP Servers](https://modelcontextprotocol.io/docs/develop/build-server)
+The core feature is the `recommend_meal` tool, which helps users decide where to eat by combining several data sources:
 
-## ✨ Features
+- **Restaurant search** — finds nearby restaurants matching the requested cuisine using the Google Maps Places API
+- **Weather awareness** — fetches current conditions via OpenWeatherMap and adjusts recommendations accordingly (e.g. prioritises nearby venues in bad weather and adds travel advisories)
+- **Craving level** — accepts a hunger score from 1–100 and balances proximity vs. rating based on how hungry the user is
+- **Opening hours** — optionally filters restaurants that are open at a specific time (HH:MM)
+- **Rich UI** — returns a React-rendered card interface embedded inside the MCP response (via `@modelcontextprotocol/ext-apps`)
 
-| Category | Feature | Description |
-|----------|---------|-------------|
-| **Tools** | `hello` | Basic tool with annotations |
-| | `get_weather` | Tool with structured output schema |
-| | `ask_llm` | Tool that invokes LLM sampling |
-| | `long_task` | Tool with 5-second progress updates |
-| | `load_bonus_tool` | Dynamically loads a new tool |
-| **Resources** | `info://about` | Static informational resource |
-| | `file://example.md` | File-based markdown resource |
-| **Templates** | `greeting://{name}` | Personalized greeting |
-| | `data://items/{id}` | Data lookup by ID |
-| **Prompts** | `greet` | Greeting in various styles |
-| | `code_review` | Code review with focus areas |
+### All Available Tools
 
-## 🚀 Quick Start
+| Tool | Description |
+|------|-------------|
+| `recommend_meal` | Find a weather-aware restaurant near you by cuisine type |
+| `get_weather` | Current weather for any city (or auto-detected from IP) |
+| `ask_llm` | Have the MCP server request a completion from the connected LLM client |
+| `hello` | Basic connectivity check |
+| `long_task` | Simulates a slow task with real-time progress updates |
+| `load_bonus_tool` | Dynamically registers `bonus_calculator` at runtime |
+| `confirm_action` | Requests structured user confirmation via elicitation |
+| `get_feedback` | Requests free-form feedback via URL elicitation |
+| `tickle_mind` | Easter egg — starts an X-dimension experience |
 
-### Prerequisites
+### Resources & Prompts
+
+- `info://about` — static server info resource
+- `file://example.md` — example file resource
+- `greeting://{name}` — personalized greeting template
+- `data://items/{id}` — data lookup template
+- `greet` prompt — greeting in various styles
+- `code_review` prompt — code review with focus areas
+
+## Prerequisites
 
 - [Node.js 20+](https://nodejs.org/)
-- npm or pnpm
+- pnpm (`npm install -g pnpm`)
+- A [Google Maps API key](https://console.cloud.google.com/) with **Geocoding API** and **Places API (Legacy)** enabled
+- An [OpenWeatherMap API key](https://openweathermap.org/api) (free tier works)
 
-### Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/SamMorrowDrums/mcp-typescript-starter.git
+# Clone
+git clone <your-repo-url>
 cd mcp-typescript-starter
 
 # Install dependencies
-npm install
+pnpm install
+
+# Configure environment
+cp .env.example .env
+# Edit .env and add your API keys
 
 # Build
-npm run build
+pnpm build
+
+# Run (stdio transport, for use with Cursor / Claude Desktop)
+pnpm start:stdio
 ```
 
-### Running the Server
+## Environment Variables
 
-**stdio transport** (for local development):
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `GOOGLE_MAPS_API_KEY` | Google Maps key (Geocoding + Places API Legacy) | Yes, for `recommend_meal` |
+| `OPEN_WEATHER_API_KEY` | OpenWeatherMap key (free at openweathermap.org) | Yes, for weather features |
+| `PORT` | HTTP server port | No (default: `3000`) |
+
+## MCP Configuration
+
+The server supports two transports: **stdio** (recommended for local development) and **HTTP** (for remote or multi-client setups).
+
+### Cursor
+
+A `.vscode/mcp.json` is included and picked up by Cursor automatically when you open the project. It runs the server in dev mode via `tsx` so there is no build step needed:
+
+```jsonc
+{
+  "servers": {
+    "meal-planner": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["tsx", "src/stdio.ts"],
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "<your-key>",
+        "OPEN_WEATHER_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+After running `pnpm build` you can point to the compiled output instead:
+
+```jsonc
+"args": ["dist/stdio.js"],
+"command": "node"
+```
+
+### Claude Desktop
+
+Add the server to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the equivalent path on your OS:
+
+```jsonc
+{
+  "mcpServers": {
+    "meal-planner": {
+      "command": "node",
+      "args": ["/absolute/path/to/mcp-typescript-starter/dist/stdio.js"],
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "<your-key>",
+        "OPEN_WEATHER_API_KEY": "<your-key>"
+      }
+    }
+  }
+}
+```
+
+Run `pnpm build` first so `dist/stdio.js` exists.
+
+### HTTP Transport
+
+The HTTP transport is useful when you want to connect multiple clients to the same running server instance, or when the server runs on a remote machine.
+
+Start the server:
+
 ```bash
-npm run start:stdio
+pnpm dev:http          # development, live reload
+# or
+pnpm start:http        # production build (runs on http://localhost:3000)
 ```
 
-**HTTP transport** (for remote/web deployment):
-```bash
-npm run start:http
-# Server runs on http://localhost:3000
+Then configure your client to connect via HTTP:
+
+```jsonc
+{
+  "servers": {
+    "meal-planner": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
 ```
 
-## 🔧 VS Code Integration
+> **Note:** API keys must be set in `.env` (or the shell environment) when using HTTP transport, since there is no per-client `env` block.
 
-This project includes VS Code configuration for seamless development:
+## Development Guide
 
-1. Open the project in VS Code
-2. The MCP configuration is in `.vscode/mcp.json`
-3. Build with `Ctrl+Shift+B` (or `Cmd+Shift+B` on Mac)
-4. Test the server using VS Code's MCP tools
-
-### Using DevContainers
-
-1. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-2. Open command palette: "Dev Containers: Reopen in Container"
-3. Everything is pre-configured and ready to use!
-
-## 📁 Project Structure
+### Project Structure
 
 ```
 .
 ├── src/
-│   ├── tools.ts       # Tool definitions (hello, get_weather, ask_llm, etc.)
-│   ├── resources.ts   # Resource and template definitions
-│   ├── prompts.ts     # Prompt definitions
-│   ├── server.ts      # Server orchestration (combines all modules)
-│   ├── stdio.ts       # stdio transport entrypoint
-│   └── http.ts        # HTTP transport entrypoint
+│   ├── tools.ts            # All tool definitions
+│   ├── resources.ts        # Resource and template definitions
+│   ├── prompts.ts          # Prompt definitions
+│   ├── server.ts           # Server orchestration
+│   ├── stdio.ts            # stdio transport entrypoint
+│   ├── http.ts             # HTTP transport entrypoint
+│   ├── mcp-app.tsx         # React UI for general tools
+│   ├── mcp-app-meal.tsx    # React UI for recommend_meal
+│   └── services/
+│       ├── google-places.ts  # Google Maps integration
+│       └── openweather.ts    # OpenWeatherMap integration
 ├── .vscode/
-│   ├── mcp.json       # MCP server configuration
-│   ├── tasks.json     # Build/run tasks
-│   └── extensions.json
+│   ├── mcp.json            # MCP server config for Cursor/VS Code
+│   └── tasks.json          # Build/run tasks
 ├── .devcontainer/
 │   └── devcontainer.json
 ├── package.json
 ├── tsconfig.json
-├── .prettierrc        # Prettier configuration
-└── eslint.config.js
+├── tsconfig.server.json    # Server-only build config
+└── tsconfig.app.json       # React UI build config
 ```
 
-## 🛠️ Development
+### Dev Commands
 
 ```bash
-# Development mode with live reload
-npm run dev
+# Development with live reload (stdio)
+pnpm dev
 
-# Build for production
-npm run build
+# Development with live reload (HTTP)
+pnpm dev:http
 
-# Format code
-npm run format
+# Build everything (UI + server)
+pnpm build
+
+# Build UI only (React apps bundled via Vite)
+pnpm build:ui
 
 # Lint
-npm run lint
+pnpm lint
+pnpm lint:fix
 
-# Clean build
-npm run clean && npm run build
+# Format
+pnpm format
+
+# Clean build artifacts
+pnpm clean && pnpm build
 ```
 
 ### Live Reload
 
-The `npm run dev` command uses `tsx watch` for instant reloads during development.
-Changes to any `.ts` file will automatically restart the server.
+`pnpm dev` uses `tsx watch` — any change to a `.ts` or `.tsx` file in `src/` restarts the server instantly. The UI components (`mcp-app.tsx`, `mcp-app-meal.tsx`) are bundled separately by Vite and inlined as single-file HTML.
 
-## 🔍 MCP Inspector
+### Adding a New Tool
 
-The [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) is an essential development tool for testing and debugging MCP servers.
+1. Open `src/tools.ts`
+2. Write a `registerMyTool(server: McpServer)` function following the existing patterns
+3. Call it from `registerTools(server)` at the top of the file
+4. Rebuild or rely on `pnpm dev` for live reload
 
-### Running Inspector
+### MCP Inspector
+
+The [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) lets you test tools interactively without an AI client:
 
 ```bash
 npx @modelcontextprotocol/inspector -- npx tsx src/stdio.ts
 ```
 
-### What Inspector Provides
+Use the **Tools** tab to invoke `recommend_meal` directly, the **Logs** tab to inspect JSON-RPC payloads, and the **Resources** tab to browse available content.
 
-- **Tools Tab**: List and invoke all registered tools with parameters
-- **Resources Tab**: Browse and read resources and templates
-- **Prompts Tab**: View and test prompt templates
-- **Logs Tab**: See JSON-RPC messages between client and server
-- **Schema Validation**: Verify tool input/output schemas
+## Forked From
 
-### Debugging Tips
+This project is forked from [SamMorrowDrums/mcp-typescript-starter](https://github.com/SamMorrowDrums/mcp-typescript-starter), a feature-complete MCP server template covering tools, resources, templates, prompts, progress updates, dynamic tool loading, and elicitation.
 
-1. Start Inspector before connecting your IDE/client
-2. Use the "Logs" tab to see exact request/response payloads
-3. Test tool annotations are exposed correctly
-4. Verify progress notifications appear for `long_task`
+## License
 
-## 📖 Feature Examples
-
-### Tool with Annotations
-
-```typescript
-server.tool(
-  "hello",
-  {
-    title: "Say Hello",
-    description: "A friendly greeting tool",
-    annotations: { readOnlyHint: true },
-  },
-  { name: z.string() },
-  async ({ name }) => ({
-    content: [{ type: "text", text: `Hello, ${name}!` }],
-  })
-);
-```
-
-### Resource Template
-
-```typescript
-server.resourceTemplate(
-  "greeting://{name}",
-  { name: "Personalized Greeting", mimeType: "text/plain" },
-  async ({ name }) => ({
-    contents: [{
-      uri: `greeting://${name}`,
-      text: `Hello, ${name}!`,
-    }],
-  })
-);
-```
-
-### Tool with Progress Updates
-
-```typescript
-server.tool(
-  "long_task",
-  { title: "Long Task" },
-  { taskName: z.string() },
-  async ({ taskName }, { sendProgress }) => {
-    for (let i = 0; i < 5; i++) {
-      await sendProgress({ progress: i / 5, total: 1.0 });
-      await sleep(1000);
-    }
-    return { content: [{ type: "text", text: "Done!" }] };
-  }
-);
-```
-
-## 🔐 Environment Variables
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | HTTP server port | `3000` |
-| `GOOGLE_MAPS_API_KEY` | Google Maps API key for `recommend_meal` (Geocoding + Places API Legacy) | — |
-| `OPEN_WEATHER_API_KEY` | OpenWeatherMap API key for `get_weather` (free at openweathermap.org) | — |
-
-## 🤝 Contributing
-
-Contributions welcome! Please ensure your changes maintain feature parity with other language starters.
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE) for details.
