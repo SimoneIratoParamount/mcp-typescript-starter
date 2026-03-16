@@ -17,28 +17,12 @@ The core feature is the `recommend_meal` tool, which helps users decide where to
 - **Opening hours** — optionally filters restaurants that are open at a specific time (HH:MM)
 - **Rich UI** — returns a React-rendered card interface embedded inside the MCP response (via `@modelcontextprotocol/ext-apps`)
 
-### All Available Tools
+### Tools
 
 | Tool | Description |
 |------|-------------|
 | `recommend_meal` | Find a weather-aware restaurant near you by cuisine type |
 | `get_weather` | Current weather for any city (or auto-detected from IP) |
-| `ask_llm` | Have the MCP server request a completion from the connected LLM client |
-| `hello` | Basic connectivity check |
-| `long_task` | Simulates a slow task with real-time progress updates |
-| `load_bonus_tool` | Dynamically registers `bonus_calculator` at runtime |
-| `confirm_action` | Requests structured user confirmation via elicitation |
-| `get_feedback` | Requests free-form feedback via URL elicitation |
-| `tickle_mind` | Easter egg — starts an X-dimension experience |
-
-### Resources & Prompts
-
-- `info://about` — static server info resource
-- `file://example.md` — example file resource
-- `greeting://{name}` — personalized greeting template
-- `data://items/{id}` — data lookup template
-- `greet` prompt — greeting in various styles
-- `code_review` prompt — code review with focus areas
 
 ## Prerequisites
 

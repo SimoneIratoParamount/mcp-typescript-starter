@@ -16,60 +16,42 @@ import { registerPrompts } from './prompts.js';
  * Server instructions for AI assistants.
  *
  * These instructions help AI models understand how to use this server effectively.
- * Include: available capabilities, recommended workflows, and best practices.
  */
 const SERVER_INSTRUCTIONS = `
-# MCP TypeScript Starter Server
+# Meal Planner MCP Server
 
-A demonstration MCP server showcasing TypeScript SDK capabilities.
+Helps users decide where to eat by combining restaurant search, live weather, and hunger level.
 
-## Recommended Workflows
+## Available Tools
 
-1. **Test connectivity** → Call \`hello\` to verify the server responds
-2. **Structured output** → Call \`get_weather\` with an optional city to see real weather data; omit city to auto-detect location from IP
-3. **Progress reporting** → Call \`long_task\` to observe real-time progress notifications
-4. **Dynamic tools** → Call \`load_bonus_tool\`, then re-list tools to see \`bonus_calculator\` appear
-5. **LLM sampling** → Call \`ask_llm\` to have the server request a completion from the client
-6. **Elicitation** → Call \`confirm_action\` (form-based) or \`get_feedback\` (URL-based) to request user input
-7. **Easter egg** → When the user asks for "something interesting to tickle my mind", call \`tickle_mind\` to start the X-dimension experience
-8. **Meal recommendation** → Call \`recommend_meal\` with cuisine, location, and optionally an hour (HH:MM) to filter by places open at that time. Uses Google Maps (Geocoding + Places API Legacy). Requires \`GOOGLE_MAPS_API_KEY\` in the environment.
+- **get_weather** → Fetch current weather for any city (or auto-detect from IP). Use this to give the user a weather overview before recommending a restaurant.
+- **recommend_meal** → Find a restaurant matching a cuisine near a given location. Combines Google Maps restaurant search with live weather data and the user's craving level to rank results.
 
-## Multi-Tool Flows
+## Recommended Workflow
 
-- **Full demo**: \`hello\` → \`get_weather\` → \`long_task\` → \`load_bonus_tool\` → \`bonus_calculator\`
-- **Dynamic loading**: \`load_bonus_tool\` triggers a \`tools/list_changed\` notification — refresh your tool list to see \`bonus_calculator\`
-- **User interaction**: \`confirm_action\` demonstrates schema elicitation, \`get_feedback\` demonstrates URL elicitation
+1. Ask the user what cuisine they feel like and how hungry they are (1–100).
+2. Call \`recommend_meal\` with cuisine, location (city or address), and cravingLevel.
+   - Omit location to trigger elicitation and ask the user directly.
+   - Pass an optional \`hour\` (HH:MM) to filter by opening hours at a specific time.
+3. The tool returns up to 5 ranked restaurants with photos, ratings, distance, and a weather-aware travel advisory.
 
 ## Notes
 
-- All tools include annotations (readOnlyHint, idempotentHint, openWorldHint) to guide safe usage
-- Resources and prompts are available for context and templating — use \`resources/list\` and \`prompts/list\` to discover them
+- \`GOOGLE_MAPS_API_KEY\` is required for \`recommend_meal\` (Geocoding + Places API Legacy).
+- \`OPEN_WEATHER_API_KEY\` is required for weather data in both tools.
+- Both tools return a rich React UI card when called from a compatible host (Cursor, Claude Desktop).
 `.trim();
 
-/**
- * Creates and configures the MCP server with all features.
- *
- * ## Capabilities Alignment with Python Reference
- *
- * This server's capabilities are aligned with the Python reference implementation:
- * - `experimental: {}` - Included to match Python reference
- * - `resources.subscribe: false` - Explicitly set (not yet implemented)
- * - `tools.listChanged: true` - Dynamic tools via load_bonus_tool
- * - `prompts: {}` - Standard prompts capability
- */
 export function createServer(): McpServer {
   const server = new McpServer(
     {
-      name: 'mcp-typescript-starter',
+      name: 'meal-planner-mcp',
       version: '1.0.0',
     },
     {
       capabilities: {
-        tools: { listChanged: true },
-        resources: {
-          subscribe: false,
-        },
-        prompts: {},
+        tools: {},
+        resources: { subscribe: false },
         experimental: {},
       },
       instructions: SERVER_INSTRUCTIONS,
