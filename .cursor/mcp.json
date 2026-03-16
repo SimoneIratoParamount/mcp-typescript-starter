@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "meal-planner": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["tsx", "src/stdio.ts"]
+    }
+    // "meal-planner-from-build-files": {
+    //   "type": "stdio",
+    //   "args": ["dist/stdio.js"],
+    //   "command": "node"
+    // },
+    // "meal-planner-from-http-transport": {
+    //   "type": "http",
+    //   "url": "http://localhost:3000/mcp"
+    // }
+  }
+}
