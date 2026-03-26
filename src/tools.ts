@@ -14,8 +14,8 @@ import {
 } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { importMetaPaths } from './utils/import-meta.js';
 import {
   resolveLocation,
   searchRestaurants,
@@ -27,8 +27,7 @@ import {
 } from './services/google-places.js';
 import { getWeather, fetchWeatherByCoords, classifyWeather } from './services/openweather.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const { __filename, __dirname } = importMetaPaths(import.meta.url);
 // When running via tsx (dev), __dirname is src/ — compiled output lives in dist/
 const DIST_DIR = __filename.endsWith('.ts') ? join(__dirname, '..', 'dist') : __dirname;
 

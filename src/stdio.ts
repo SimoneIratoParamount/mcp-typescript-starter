@@ -13,10 +13,10 @@
  */
 
 import { config } from 'dotenv';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { resolve } from 'path';
+import { importMetaPaths } from './utils/import-meta.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const { __dirname } = importMetaPaths(import.meta.url);
 config({ path: resolve(__dirname, '..', '.env') });
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
