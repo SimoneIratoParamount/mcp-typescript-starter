@@ -6,6 +6,7 @@ This file provides context for AI coding agents working in this repository.
 
 | Task | Command |
 |------|---------|
+| Node | 24+ (see `.nvmrc`; `package.json` `engines`) |
 | Install | `pnpm install` (see `package.json` engines) |
 | Build | `pnpm run build` |
 | Full check | `pnpm run check` (format + lint + build) |
@@ -26,7 +27,7 @@ This file provides context for AI coding agents working in this repository.
 
 ## Technology Stack
 
-- **Runtime**: Node.js >=20.0.0
+- **Runtime**: Node.js >=24.0.0 (see `.nvmrc`)
 - **Language**: TypeScript 5.5+ (ESM)
 - **Bundler**: Vite 7 (UI single-file builds + Node SSR bundle for `stdio` / `http` transports)
 - **MCP SDK**: `@modelcontextprotocol/sdk`, `@modelcontextprotocol/ext-apps`

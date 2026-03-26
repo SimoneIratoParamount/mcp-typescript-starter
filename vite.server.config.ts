@@ -13,7 +13,7 @@ export default defineConfig({
   publicDir: false,
   build: {
     ssr: true,
-    target: 'node20',
+    target: 'node24',
     outDir: 'dist',
     emptyOutDir: false,
     minify: false,

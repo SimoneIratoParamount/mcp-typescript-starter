@@ -6,7 +6,7 @@
 
 **Architecture:** Keep **two Vite configs** (`vite.config.ts` for UI, `vite.server.config.ts` for Node SSR entries). TypeScript uses a **shared base** extended by server vs app configs with **`noEmit: true`**. **No** `.d.ts` from build. Verification is **`pnpm run lint`** and **`pnpm run build`** after each task (no unit test harness yet — add smoke tests later if desired).
 
-**Tech stack:** Node 20+, pnpm, TypeScript 5.x, Vite 7, ESLint + typescript-eslint, Prettier.
+**Tech stack:** Node 24+, pnpm, TypeScript 5.x, Vite 7, ESLint + typescript-eslint, Prettier.
 
 **Spec reference:** @docs/superpowers/specs/2026-03-26-single-bundler-typescript-design.md
 
@@ -53,13 +53,13 @@ Example shape (exact versions pin to match repo):
     version: 10
 - uses: actions/setup-node@v6
   with:
-    node-version: '20'
+    node-version: '24'
     cache: 'pnpm'
 - run: pnpm install --frozen-lockfile
 - run: pnpm run format:check
 - run: pnpm run lint
 - run: pnpm run build
-- run: pnpm test --if-present
+- run: pnpm run --if-present test
 ```
 
 - [ ] **Step 2: Verify locally**
