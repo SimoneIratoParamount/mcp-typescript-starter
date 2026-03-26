@@ -19,12 +19,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
       - uses: SamMorrowDrums/mcp-server-diff@v2
         with:
-          setup_node: true
-          node_version: '22'
-          install_command: npm ci
-          build_command: npm run build
+          setup_node: 'false'
+          install_command: pnpm install --frozen-lockfile
+          build_command: pnpm run build
           http_start_command: node dist/http.js
           configurations: |
             [
