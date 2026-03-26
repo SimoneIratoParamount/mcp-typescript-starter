@@ -41,7 +41,11 @@ This file provides context for AI coding agents working in this repository.
 ```
 src/
 ├── server.ts              # createServer() — McpServer + registerTools
-├── tools.ts               # Tool registrations (weather, meal planner UI)
+├── tools/                 # Tool registrations (weather, meal planner UI)
+│   ├── index.ts
+│   ├── register-weather.ts
+│   └── register-meal.ts
+├── tools-bundle-path.ts   # dist/ path for embedded UI HTML (import.meta layout)
 ├── stdio.ts               # stdio transport entry
 ├── http.ts                # HTTP + MCP streamable transport entry
 ├── mcp-app.tsx            # Vite client bundle for generic MCP UI demo
@@ -104,7 +108,7 @@ pnpm test
 
 ## Key Files to Modify
 
-- **Tools**: `src/tools.ts` → `registerTools(server)`
+- **Tools**: `src/tools/index.ts` → `registerTools(server)`
 - **Server metadata / instructions**: `src/server.ts` → `createServer()`
 - **HTTP routes / static files**: `src/http.ts`
 - **Places / weather services**: `src/services/google-places.ts`, `src/services/openweather.ts`
@@ -113,8 +117,8 @@ pnpm test
 
 | Feature | Location | Description |
 |---------|----------|-------------|
-| `get_weather` | `tools.ts` | Weather + optional embedded UI |
-| `recommend_meal` | `tools.ts` | Restaurant search + weather-aware ranking + embedded meal UI |
+| `get_weather` | `tools/register-weather.ts` | Weather + optional embedded UI |
+| `recommend_meal` | `tools/register-meal.ts` | Restaurant search + weather-aware ranking + embedded meal UI |
 | Transports | `stdio.ts`, `http.ts` | stdio and streamable HTTP |
 
 ## Environment Variables
