@@ -66,7 +66,7 @@ The server supports two transports: **stdio** (recommended for local development
 
 ### Cursor
 
-A `.vscode/mcp.json` is included and picked up by Cursor automatically when you open the project. It runs the server in dev mode via `tsx` so there is no build step needed:
+Cursor loads MCP config from `.cursor/mcp.json` (or your user MCP settings). The repo can run the server in dev mode via `tsx` so there is no build step needed:
 
 ```jsonc
 {
@@ -146,7 +146,7 @@ Then configure your client to connect via HTTP:
 ```
 .
 ├── src/
-│   ├── tools.ts            # All tool definitions
+│   ├── tools/              # Tool modules (register-weather, register-meal, index)
 │   ├── server.ts           # Server orchestration
 │   ├── stdio.ts            # stdio transport entrypoint
 │   ├── http.ts             # HTTP transport entrypoint
@@ -198,9 +198,9 @@ pnpm clean && pnpm build
 
 ### Adding a New Tool
 
-1. Open `src/tools.ts`
+1. Open `src/tools/` (e.g. add `register-my-tool.ts` and wire it in `index.ts`)
 2. Write a `registerMyTool(server: McpServer)` function following the existing patterns
-3. Call it from `registerTools(server)` at the top of the file
+3. Call it from `registerTools(server)` in `src/tools/index.ts`
 4. Rebuild or rely on `pnpm dev` for live reload
 
 ### MCP Inspector
