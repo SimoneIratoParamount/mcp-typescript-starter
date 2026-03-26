@@ -151,9 +151,10 @@ Then configure your client to connect via HTTP:
 │   ├── stdio.ts            # stdio transport entrypoint
 │   ├── http.ts             # HTTP transport entrypoint
 │   ├── mcp-app.tsx         # React UI for general tools
-│   ├── mcp-app-meal.tsx    # React UI for recommend_meal
+│   ├── mcp-app-meal.tsx    # Vite entry for recommend_meal UI
+│   ├── mcp-app-meal/       # Meal UI components
 │   └── services/
-│       ├── google-places.ts  # Google Maps integration
+│       ├── google-places/    # Google Maps / Places integration
 │       └── openweather.ts    # OpenWeatherMap integration
 ├── .vscode/
 │   ├── mcp.json            # MCP server config for Cursor/VS Code

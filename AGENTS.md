@@ -47,11 +47,13 @@ src/
 │   └── register-meal.ts
 ├── tools-bundle-path.ts   # dist/ path for embedded UI HTML (import.meta layout)
 ├── stdio.ts               # stdio transport entry
-├── http.ts                # HTTP + MCP streamable transport entry
+├── http.ts                # HTTP entry (static, weather demo, `/mcp`, health)
+├── http/                  # Streamable MCP route + weather demo helpers
 ├── mcp-app.tsx            # Vite client bundle for generic MCP UI demo
-├── mcp-app-meal.tsx       # Vite client bundle for meal tool embedded UI
+├── mcp-app-meal.tsx       # Vite entry for meal tool embedded UI
+├── mcp-app-meal/          # Meal UI (carousel, cards, hooks, themes)
 ├── services/
-│   ├── google-places.ts   # Geocoding, Places, opening hours, IP geo
+│   ├── google-places/     # Geocoding, Places, opening hours, IP geo
 │   ├── openweather.ts     # OpenWeatherMap API
 │   └── weather-ui.ts      # HTML UI resource helpers (@mcp-ui/server)
 └── utils/
