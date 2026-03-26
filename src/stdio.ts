@@ -14,13 +14,13 @@
 
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { importMetaPaths } from './utils/import-meta.js';
+import { importMetaPaths } from './utils/import-meta';
 
 const { __dirname } = importMetaPaths(import.meta.url);
 config({ path: resolve(__dirname, '..', '.env') });
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { createServer } from './server.js';
+import { createServer } from './server';
 
 async function main() {
   const server = createServer();

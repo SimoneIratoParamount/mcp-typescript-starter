@@ -4,7 +4,7 @@
  */
 
 import { createUIResource } from '@mcp-ui/server';
-import type { WeatherResult } from './openweather.js';
+import type { WeatherResult } from './openweather';
 
 // ---------------------------------------------------------------------------
 // Condition → emoji + gradient

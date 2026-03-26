@@ -1,5 +1,8 @@
 node_modules/
+
+# Build output (root and nested packages)
 dist/
+**/dist/
 .env
 *.log
 .DS_Store
