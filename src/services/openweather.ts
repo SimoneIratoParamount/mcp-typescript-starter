@@ -67,7 +67,18 @@ interface OWMWeatherResponse {
 export type WeatherSeverity = 'good' | 'bad';
 
 export function classifyWeather(conditions: string): WeatherSeverity {
-  const bad = ['rain', 'drizzle', 'storm', 'thunder', 'snow', 'sleet', 'blizzard', 'hail', 'fog', 'mist'];
+  const bad = [
+    'rain',
+    'drizzle',
+    'storm',
+    'thunder',
+    'snow',
+    'sleet',
+    'blizzard',
+    'hail',
+    'fog',
+    'mist',
+  ];
   const lower = conditions.toLowerCase();
   return bad.some((w) => lower.includes(w)) ? 'bad' : 'good';
 }
@@ -111,10 +122,7 @@ export async function fetchWeatherByCoords(
  * Get current weather for a named location.
  * Geocodes the city name via OWM, then fetches current conditions.
  */
-export async function getWeather(
-  location: string,
-  apiKey: string
-): Promise<WeatherResult> {
+export async function getWeather(location: string, apiKey: string): Promise<WeatherResult> {
   const coords = await geocodeCity(location, apiKey);
   if (!coords) {
     throw new Error(

@@ -68,12 +68,7 @@ interface PlaceDetailsResponse {
 /** Earth radius in km for haversine distance. */
 const R_KM = 6371;
 
-function haversineKm(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
@@ -260,11 +255,7 @@ export async function getPlaceOpeningHours(
  * @param day - JS day-of-week: 0 = Sunday, 6 = Saturday
  * @param hhmm - time in "HHMM" format (e.g. "1000", "1430")
  */
-export function isOpenAtHour(
-  periods: OpeningPeriod[],
-  day: number,
-  hhmm: string
-): boolean {
+export function isOpenAtHour(periods: OpeningPeriod[], day: number, hhmm: string): boolean {
   // A single period with open day=0 time="0000" and no close means open 24/7
   if (
     periods.length === 1 &&

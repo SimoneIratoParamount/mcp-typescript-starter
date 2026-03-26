@@ -15,7 +15,7 @@ import {
 import { z } from 'zod';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { importMetaPaths } from './utils/import-meta.js';
+import { importMetaPaths } from './utils/import-meta';
 import {
   resolveLocation,
   searchRestaurants,
@@ -24,8 +24,8 @@ import {
   isOpenAtHour,
   ipToLatLng,
   geolocateViaGoogle,
-} from './services/google-places.js';
-import { getWeather, fetchWeatherByCoords, classifyWeather } from './services/openweather.js';
+} from './services/google-places';
+import { getWeather, fetchWeatherByCoords, classifyWeather } from './services/openweather';
 
 const { __filename, __dirname } = importMetaPaths(import.meta.url);
 // When running via tsx (dev), __dirname is src/ — compiled output lives in dist/
@@ -311,12 +311,7 @@ function registerMealRecommendationTool(server: McpServer): void {
       const [restaurantResult, weatherResult] = await Promise.allSettled([
         searchRestaurants(cuisine, coords.lat, coords.lng, apiKey),
         weatherKey?.trim()
-          ? fetchWeatherByCoords(
-              coords.lat,
-              coords.lng,
-              effectiveLocation ?? '',
-              weatherKey
-            )
+          ? fetchWeatherByCoords(coords.lat, coords.lng, effectiveLocation ?? '', weatherKey)
           : Promise.reject(new Error('no key')),
       ]);
 

@@ -14,16 +14,16 @@
 
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { importMetaPaths } from './utils/import-meta.js';
+import { importMetaPaths } from './utils/import-meta';
 
 const { __dirname } = importMetaPaths(import.meta.url);
 config({ path: resolve(__dirname, '..', '.env') });
 
 import express from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { createServer } from './server.js';
-import { getWeather } from './services/openweather.js';
-import { buildWeatherHtml } from './services/weather-ui.js';
+import { createServer } from './server';
+import { getWeather } from './services/openweather';
+import { buildWeatherHtml } from './services/weather-ui';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
@@ -34,7 +34,10 @@ async function main() {
   app.use(express.json());
 
   // Serve @mcp-ui/client Web Component and public demo files
-  app.use('/mcp-ui', express.static(new URL('../node_modules/@mcp-ui/client/dist', import.meta.url).pathname));
+  app.use(
+    '/mcp-ui',
+    express.static(new URL('../node_modules/@mcp-ui/client/dist', import.meta.url).pathname)
+  );
   app.use(express.static(new URL('../public', import.meta.url).pathname));
 
   /**
@@ -112,7 +115,9 @@ async function main() {
         await server.connect(transport);
       }
 
-      req.headers['x-client-ip'] = (req.ip || (req.headers['x-forwarded-for'] as string) || '') as string;
+      req.headers['x-client-ip'] = (req.ip ||
+        (req.headers['x-forwarded-for'] as string) ||
+        '') as string;
 
       await transport.handleRequest(req, res, req.body);
 
