@@ -112,8 +112,8 @@ pnpm test
 
 - **Tools**: `src/tools/index.ts` → `registerTools(server)`
 - **Server metadata / instructions**: `src/server.ts` → `createServer()`
-- **HTTP routes / static files**: `src/http.ts`
-- **Places / weather services**: `src/services/google-places.ts`, `src/services/openweather.ts`
+- **HTTP routes / static files**: `src/http.ts`, `src/http/mcp-streamable-http.ts`, `src/http/weather-demo.ts`
+- **Places / weather services**: `src/services/google-places/`, `src/services/openweather.ts`
 
 ## MCP Features Implemented
 
