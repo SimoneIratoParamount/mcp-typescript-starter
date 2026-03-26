@@ -1,18 +1,14 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "target": "ESNext",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "strict": true,
-    "skipLibCheck": true,
-    "composite": true
+    "jsx": "react-jsx"
   },
   "include": ["src/mcp-app.tsx", "src/mcp-app-meal.tsx", "mcp-app.html", "mcp-app-meal.html"]
 }
