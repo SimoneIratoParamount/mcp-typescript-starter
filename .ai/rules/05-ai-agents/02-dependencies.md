@@ -4,7 +4,7 @@ Both Claude Code and Cursor must have the **superpowers** plugin enabled to work
 
 ## Claude Code
 
-`superpowers` must be listed in `.claude/settings.local.json`:
+`superpowers` must be listed in `.claude/settings.json`:
 
 ```json
 {

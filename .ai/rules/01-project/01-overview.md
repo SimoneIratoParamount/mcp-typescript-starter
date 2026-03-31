@@ -24,6 +24,7 @@
 | `src/http.ts` | HTTP/SSE transport entrypoint (Express, port 3000) |
 | `src/services/google-places.ts` | Geocoding, Places search, photo URLs, IP→coordinates |
 | `src/services/openweather.ts` | Weather data by city or coordinates |
+| `src/services/weather-ui.ts` | Generates HTML weather card for HTTP demo endpoint |
 | `src/mcp-app.tsx` | React weather card UI → `dist/mcp-app.html` |
 | `src/mcp-app-meal.tsx` | React restaurant carousel UI → `dist/mcp-app-meal.html` |
 

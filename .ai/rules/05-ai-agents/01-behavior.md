@@ -10,7 +10,7 @@
 
 ## Working in This Repo
 
-- All source code lives in `src/` — do not create files outside `src/`, `dist/`, `.ai/`, or `docs/`
+- All source code lives in `src/` — do not create files outside `src/`, `dist/`, `.ai/`, `docs/`, or `public/`
 - Environment variables are in `.env` (gitignored) — never hardcode API keys
 - Run `pnpm build` to verify TypeScript after changes to `src/`
 - Use `pnpm dev` for live-reload during development
