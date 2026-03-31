@@ -1,0 +1,7 @@
+---
+description: AI agent behavior and required dependencies — always apply
+alwaysApply: true
+---
+
+@.ai/rules/05-ai-agents/01-behavior.md
+@.ai/rules/05-ai-agents/02-dependencies.md
