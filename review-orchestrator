@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export REVIEW_POLL_INTERVAL="${REVIEW_POLL_INTERVAL:-6}"
+export REVIEW_MAX_CONCURRENCY="${REVIEW_MAX_CONCURRENCY:-3}"
+
+# Verify we're in a git repo with a GitHub remote
+if ! gh repo view --json nameWithOwner -q '.nameWithOwner' &>/dev/null; then
+  echo "Error: not in a GitHub repository. Run this from a project directory." >&2
+  exit 1
+fi
+
+REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+echo "Starting review orchestrator for $REPO"
+echo "  Poll interval: ${REVIEW_POLL_INTERVAL}m"
+echo "  Max concurrency: ${REVIEW_MAX_CONCURRENCY}"
+
+cmux claude-teams --prompt "/start_reviewing_team"
