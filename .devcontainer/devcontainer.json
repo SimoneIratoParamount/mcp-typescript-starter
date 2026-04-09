@@ -1,8 +1,8 @@
 {
   "name": "MCP TypeScript Starter",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:4-24-bookworm",
   "features": {},
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "pnpm install",
   "customizations": {
     "vscode": {
       "extensions": [

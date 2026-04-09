@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "mcp-typescript-starter",
-  "description": "A TypeScript MCP server template demonstrating tools, prompts, and resources",
-  "title": "MCP TypeScript Starter",
+  "description": "Meal planner MCP server — restaurant recommendations with weather, hunger level, and embedded React UI",
+  "title": "Meal Planner MCP",
   "repository": {
     "url": "https://github.com/SamMorrowDrums/mcp-typescript-starter",
     "source": "github"
@@ -24,7 +24,7 @@
     {
       "type": "streamable-http",
       "url": "http://localhost:3000/mcp",
-      "description": "Local HTTP server (run `npm run http` first)"
+      "description": "Local HTTP transport — run `pnpm run start:http` after `pnpm build` (set PORT / API keys in `.env`)"
     }
   ]
 }

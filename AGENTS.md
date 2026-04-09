@@ -6,137 +6,137 @@ This file provides context for AI coding agents working in this repository.
 
 | Task | Command |
 |------|---------|
-| Install | `npm ci` |
-| Build | `npm run build` |
-| Test | `npm test` |
-| Lint | `npm run lint` |
-| Lint fix | `npm run lint:fix` |
-| Format | `npm run format` |
-| Format check | `npm run format:check` |
-| Run (stdio) | `npm run start:stdio` |
-| Run (HTTP) | `npm run start:http` |
-| Dev mode | `npm run dev` |
+| Node | 24+ (see `.nvmrc`; `package.json` `engines`) |
+| Install | `pnpm install` (see `package.json` engines) |
+| Build | `pnpm run build` |
+| Full check | `pnpm run check` (format + lint + build) |
+| Test | `pnpm test` (when implemented) |
+| Lint | `pnpm run lint` |
+| Lint fix | `pnpm run lint:fix` |
+| Format | `pnpm run format` |
+| Format check | `pnpm run format:check` |
+| Run (stdio) | `pnpm run start:stdio` |
+| Run (HTTP) | `pnpm run start:http` |
+| Dev mode | `pnpm run dev` |
 
 ## Project Overview
 
-**MCP TypeScript Starter** is a feature-complete Model Context Protocol (MCP) server template in TypeScript. It demonstrates all major MCP features including tools, resources, resource templates, prompts, sampling, progress updates, and dynamic tool loading.
+**Meal Planner MCP** (based on an MCP TypeScript starter) is a Model Context Protocol server that recommends restaurants using Google Places, OpenWeatherMap, and hunger/cuisine inputs, with rich UI via `@modelcontextprotocol/ext-apps`.
 
-**Purpose**: Workshop starter template for learning MCP server development.
+**Purpose:** Workshop / learning template for MCP server development.
 
 ## Technology Stack
 
-- **Runtime**: Node.js >=20.0.0
+- **Runtime**: Node.js >=24.0.0 (see `.nvmrc`)
 - **Language**: TypeScript 5.5+ (ESM)
-- **MCP SDK**: `@modelcontextprotocol/sdk`
+- **Bundler**: Vite 7 (UI single-file builds + Node SSR bundle for `stdio` / `http` transports)
+- **MCP SDK**: `@modelcontextprotocol/sdk`, `@modelcontextprotocol/ext-apps`
 - **Schema Validation**: Zod
 - **HTTP Server**: Express
-- **Package Manager**: npm (use `npm ci` for reproducible installs)
+- **Package Manager**: pnpm (see `package.json` `engines`)
 - **Formatter**: Prettier
-- **Linter**: ESLint
+- **Linter**: ESLint + typescript-eslint
 
 ## Project Structure
 
 ```
 src/
-├── server.ts           # Main server with all MCP features (tools, resources, prompts)
-├── tools.ts            # Tool definitions (hello, weather, meal recommendation, etc.)
-├── resources.ts        # Resource and resource template definitions
-├── prompts.ts          # Prompt definitions
+├── server.ts              # createServer() — McpServer + registerTools
+├── tools/                 # Tool registrations (weather, meal planner UI)
+│   ├── index.ts
+│   ├── register-weather.ts
+│   └── register-meal.ts
+├── tools-bundle-path.ts   # dist/ path for embedded UI HTML (import.meta layout)
+├── stdio.ts               # stdio transport entry
+├── http.ts                # HTTP entry (static, weather demo, `/mcp`, health)
+├── http/                  # Streamable MCP route + weather demo helpers
+├── mcp-app.tsx            # Vite client bundle for generic MCP UI demo
+├── mcp-app-meal.tsx       # Vite entry for meal tool embedded UI
+├── mcp-app-meal/          # Meal UI (carousel, cards, hooks, themes)
 ├── services/
-│   └── google-places.ts  # Google Maps Geocoding + Places API integration
-├── stdio.ts            # stdio transport entrypoint
-└── http.ts             # HTTP/SSE transport entrypoint
+│   ├── google-places/     # Geocoding, Places, opening hours, IP geo
+│   ├── openweather.ts     # OpenWeatherMap API
+│   └── weather-ui.ts      # HTML UI resource helpers (@mcp-ui/server)
+└── utils/
+    └── import-meta.ts     # importMetaPaths(import.meta.url) helper
+
+vite.config.ts             # UI build (requires INPUT=mcp-app.html | mcp-app-meal.html)
+vite.server.config.ts      # Node server bundle (stdio + http entries → dist/, chunks/)
 
 .vscode/
-├── mcp.json          # MCP server configuration for VS Code
-├── tasks.json        # Build/run tasks
-├── launch.json       # Debug configurations
-└── extensions.json   # Recommended extensions
+├── tasks.json
+└── extensions.json
 
 .devcontainer/
-└── devcontainer.json # DevContainer configuration
+└── devcontainer.json
 ```
 
 ## Build & Run Commands
 
 ```bash
-# Install dependencies
-npm install
+pnpm install
 
-# Build TypeScript
-npm run build
+# Production build: UI (twice) then Node server bundle — all output under dist/
+pnpm run build
 
-# Run in watch mode (development)
-npm run dev
+# Server outputs dist/stdio.js, dist/http.js, dist/chunks/*.js (run from repo root)
+pnpm run start:stdio
+pnpm run start:http
+```
 
-# Run server (stdio transport)
-npm run start:stdio
+**Typecheck (optional, no emit):**
 
-# Run server (HTTP transport)
-npm run start:http
+```bash
+pnpm exec tsc -p tsconfig.server.json --noEmit
+pnpm exec tsc -p tsconfig.app.json --noEmit
 ```
 
 ## Linting & Formatting
 
 ```bash
-# Lint code
-npm run lint
-
-# Fix lint issues
-npm run lint:fix
-
-# Format code with Prettier
-npm run format
-
-# Check formatting
-npm run format:check
-
-# Full check (lint + format + build)
-npm run check
+pnpm run lint
+pnpm run lint:fix
+pnpm run format
+pnpm run format:check
+pnpm run check          # format:check + lint + build
 ```
 
 ## Testing
 
 ```bash
-# Run tests (when implemented)
-npm test
+pnpm test
 ```
+
+(Placeholder until a test runner is added.)
 
 ## Key Files to Modify
 
-- **Add/modify tools**: `src/server.ts` → `registerTools()` function
-- **Add/modify resources**: `src/server.ts` → `registerResources()` function
-- **Add/modify prompts**: `src/server.ts` → `registerPrompts()` function
-- **Change server config**: `src/server.ts` → `createServer()` function
-- **HTTP port/config**: `src/http.ts`
+- **Tools**: `src/tools/index.ts` → `registerTools(server)`
+- **Server metadata / instructions**: `src/server.ts` → `createServer()`
+- **HTTP routes / static files**: `src/http.ts`, `src/http/mcp-streamable-http.ts`, `src/http/weather-demo.ts`
+- **Places / weather services**: `src/services/google-places/`, `src/services/openweather.ts`
 
 ## MCP Features Implemented
 
 | Feature | Location | Description |
 |---------|----------|-------------|
-| `hello` tool | `server.ts` | Basic tool with annotations |
-| `get_weather` tool | `server.ts` | Structured JSON output |
-| `ask_llm` tool | `server.ts` | Sampling/LLM invocation |
-| `long_task` tool | `server.ts` | Progress updates |
-| `load_bonus_tool` | `tools.ts` | Dynamic tool loading |
-| `recommend_meal` | `tools.ts` | Restaurant search via Google Maps Places API |
-| Resources | `resources.ts` | Static `about://server`, `doc://example` |
-| Templates | `resources.ts` | `greeting://{name}`, `item://{id}` |
-| Prompts | `prompts.ts` | `greet`, `code_review` with arguments |
+| `get_weather` | `tools/register-weather.ts` | Weather + optional embedded UI |
+| `recommend_meal` | `tools/register-meal.ts` | Restaurant search + weather-aware ranking + embedded meal UI |
+| Transports | `stdio.ts`, `http.ts` | stdio and streamable HTTP |
 
 ## Environment Variables
 
-- `PORT` - HTTP server port (default: 3000)
-- `GOOGLE_MAPS_API_KEY` - API key for Google Maps (Geocoding + Places API Legacy); required by `recommend_meal`
-- `OPEN_WEATHER_API_KEY` - API key for Open Weather Maps; required by `get_weather`
+- `PORT` — HTTP server port (default: 3000)
+- `GOOGLE_MAPS_API_KEY` — Geocoding + Places API Legacy; required for `recommend_meal`
+- `OPEN_WEATHER_API_KEY` — required for weather in tools
 
 ## Conventions
 
-- Use Zod schemas for all tool inputs
-- Follow ESM module syntax (`import`/`export`)
-- Use TypeScript strict mode
+- Use Zod schemas for tool inputs
+- ESM (`import`/`export`); extensionless relative imports in source; Vite emits Node-compatible chunks under `dist/chunks/`
+- TypeScript strict mode (`tsconfig.base.json` + overlays)
 - Format with Prettier before committing
-- Run `npm run check` before PRs
+- Run `pnpm run check` before PRs
 
 ## Documentation Links
 

@@ -1,9 +1,5 @@
 /**
- * Meal Planner MCP — Tools
- *
- * Tool definitions for the meal planner MCP server.
- *
- * @see https://modelcontextprotocol.io/docs/concepts/tools
+ * `recommend_meal` tool registration.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -14,8 +10,8 @@ import {
 } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { DIST_DIR } from '../tools-bundle-path';
 import {
   resolveLocation,
   searchRestaurants,
@@ -24,108 +20,12 @@ import {
   isOpenAtHour,
   ipToLatLng,
   geolocateViaGoogle,
-} from './services/google-places.js';
-import { getWeather, fetchWeatherByCoords, classifyWeather } from './services/openweather.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-// When running via tsx (dev), __dirname is src/ — compiled output lives in dist/
-const DIST_DIR = __filename.endsWith('.ts') ? join(__dirname, '..', 'dist') : __dirname;
+} from '../services/google-places';
+import { fetchWeatherByCoords, classifyWeather } from '../services/openweather';
 
 interface ExtraMetadata {
   requestInfo?: { headers?: Record<string, string | string[] | undefined> };
 }
-
-/**
- * Register all tools with the server.
- */
-export function registerTools(server: McpServer): void {
-  registerWeatherTool(server);
-  registerMealRecommendationTool(server);
-}
-
-// =============================================================================
-// Weather tool
-// =============================================================================
-
-/**
- * Weather tool backed by OpenWeatherMap with a React MCP App UI.
- *
- * Uses registerAppTool to attach _meta.ui.resourceUri so compatible hosts
- * render the React card automatically.
- */
-function registerWeatherTool(server: McpServer): void {
-  const resourceUri = 'ui://get-weather/mcp-app.html';
-
-  registerAppTool(
-    server,
-    'get_weather',
-    {
-      title: 'Get Weather',
-      description: 'Get the current weather for a city or location name.',
-      inputSchema: {
-        city: z.string().describe('City or location name (e.g. "Berlin", "Tokyo, JP")'),
-      },
-      _meta: { ui: { resourceUri } },
-    },
-    async ({ city }) => {
-      const apiKey = process.env.OPEN_WEATHER_API_KEY;
-
-      if (!apiKey?.trim()) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'OpenWeatherMap API is not configured. Set OPEN_WEATHER_API_KEY in your .env file.',
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      try {
-        const weather = await getWeather(city, apiKey);
-        const summary =
-          `${weather.location}: ${weather.temperature}°C, ${weather.conditions}. ` +
-          `Humidity ${weather.humidity}%, wind ${weather.windSpeed} m/s.`;
-        return {
-          content: [{ type: 'text', text: summary }],
-          structuredContent: weather as unknown as Record<string, unknown>,
-        };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [{ type: 'text', text: `Failed to get weather: ${message}` }],
-          isError: true,
-        };
-      }
-    }
-  );
-
-  registerAppResource(
-    server,
-    resourceUri,
-    resourceUri,
-    { mimeType: RESOURCE_MIME_TYPE },
-    async () => {
-      const html = await readFile(join(DIST_DIR, 'mcp-app.html'), 'utf-8');
-      return {
-        contents: [
-          {
-            uri: resourceUri,
-            mimeType: RESOURCE_MIME_TYPE,
-            text: html,
-            _meta: { ui: { csp: { resourceDomains: ['https://images.unsplash.com'] } } },
-          },
-        ],
-      };
-    }
-  );
-}
-
-// =============================================================================
-// Meal recommendation – restaurant by cuisine (Google Maps + weather-aware)
-// =============================================================================
 
 /** Build a travel advisory based on weather and distance. */
 function buildTravelAdvisory(conditions: string, distanceKm: number): string {
@@ -155,7 +55,7 @@ function buildTravelAdvisory(conditions: string, distanceKm: number): string {
  * the given location. Weather-aware: in bad conditions it prioritises nearby
  * venues and adds a travel advisory.
  */
-function registerMealRecommendationTool(server: McpServer): void {
+export function registerMealRecommendationTool(server: McpServer): void {
   const resourceUri = 'ui://recommend-meal/mcp-app-meal.html';
 
   registerAppTool(
@@ -312,12 +212,7 @@ function registerMealRecommendationTool(server: McpServer): void {
       const [restaurantResult, weatherResult] = await Promise.allSettled([
         searchRestaurants(cuisine, coords.lat, coords.lng, apiKey),
         weatherKey?.trim()
-          ? fetchWeatherByCoords(
-              coords.lat,
-              coords.lng,
-              effectiveLocation ?? '',
-              weatherKey
-            )
+          ? fetchWeatherByCoords(coords.lat, coords.lng, effectiveLocation ?? '', weatherKey)
           : Promise.reject(new Error('no key')),
       ]);
 
