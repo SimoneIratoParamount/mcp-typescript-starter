@@ -1,0 +1,8 @@
+---
+description: MCP server setup and tool authoring patterns
+globs: ["src/**"]
+alwaysApply: false
+---
+
+@.ai/rules/03-mcp/01-setup.md
+@.ai/rules/03-mcp/02-tools.md

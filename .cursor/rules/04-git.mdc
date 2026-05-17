@@ -1,0 +1,6 @@
+---
+description: Git workflow — always apply
+alwaysApply: true
+---
+
+@.ai/rules/04-git/01-workflow.md

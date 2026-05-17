@@ -1,3 +1,9 @@
+@.ai/rules/01-project/01-overview.md
+@.ai/rules/01-project/02-architecture.md
+@.ai/rules/04-git/01-workflow.md
+@.ai/rules/05-ai-agents/01-behavior.md
+@.ai/rules/05-ai-agents/02-dependencies.md
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
